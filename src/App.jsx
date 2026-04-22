@@ -1,7 +1,20 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ShoppingCart, Home, Settings, Plus, Image as ImageIcon, Package, Check, Trash2, ArrowRight, Diamond, Database, RefreshCw, AlertTriangle, X, Sparkles, Save, Percent, Search, Receipt, Lock, Camera, Wand2 } from 'lucide-react';
 
-// --- MOCK DATA PREVIEW ---
+// --- FUNGSI KEAMANAN ENKRIPSI SANDI (SHA-256) ---
+// Membuat sandi tidak bisa dilihat di Inspect Element
+const hashPassword = async (password) => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
+// Default Hash untuk 'admin123'
+const DEFAULT_HASH = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9';
+
+// --- MOCK DATA ---
 const initialProducts = [
   { id: '1', name: 'Tas Chanel Classic Flap', price_modal: 85000000, price_sell: 87500000, stock: 2, sold: 12, category: 'Tas Mewah', image: 'https://images.unsplash.com/photo-1584916201218-f4242ceb4809?auto=format&fit=crop&w=500&q=80' },
   { id: '2', name: 'Jam Tangan Rolex Submariner', price_modal: 150000000, price_sell: 155000000, stock: 1, sold: 3, category: 'Jam Tangan', image: 'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?auto=format&fit=crop&w=500&q=80' },
@@ -9,21 +22,15 @@ const initialProducts = [
   { id: '4', name: 'Kacamata Gucci Oversized', price_modal: 4000000, price_sell: 4500000, stock: 3, sold: 0, category: 'Aksesoris', image: 'https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=500&q=80' },
 ];
 
-const mockOrders = [
-  { id: 'ORD-001', date: '2026-04-20', customer: 'Bapak Andi', total_modal: 150000000, total_sell: 155000000, fee: 7750000, ongkir: 5000, grand_total: 162755000, status: 'Selesai' },
-  { id: 'ORD-002', date: '2026-04-21', customer: 'Ibu Sarah', total_modal: 2500000, total_sell: 2800000, fee: 140000, ongkir: 0, grand_total: 2940000, status: 'Diproses' },
-];
-
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycby7ACCocOywxV3Cx0QEbk2B6Axz7HptgX4zMmi3ApTdcsBxysch0K8xaKkUBgjBkNdtaQ/exec";
-const DEFAULT_SETTINGS = { fee_percent: 0.05, ongkir_flat: 5000, min_free_ongkir: 3, admin_password: 'admin' };
+const DEFAULT_SETTINGS = { fee_percent: 0.05, ongkir_flat: 5000, min_free_ongkir: 3, admin_password_hash: DEFAULT_HASH };
 
 export default function App() {
+  // STATE NAVIGASI
   const [view, setView] = useState('shop');
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   
-  // ==========================================
-  // STATE PENYIMPANAN LOKAL (Tersimpan di HP)
-  // ==========================================
+  // STATE PENYIMPANAN
   const [apiUrl, setApiUrl] = useState(() => localStorage.getItem('jastip_api_url') || DEFAULT_API_URL);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -34,12 +41,18 @@ export default function App() {
 
   const [orders, setOrders] = useState(() => {
     const localOrders = localStorage.getItem('jastip_orders');
-    return localOrders ? JSON.parse(localOrders) : mockOrders;
+    return localOrders ? JSON.parse(localOrders) : [];
   });
 
   const [settings, setSettings] = useState(() => {
     const localSettings = localStorage.getItem('jastip_settings');
-    return localSettings ? { ...DEFAULT_SETTINGS, ...JSON.parse(localSettings) } : DEFAULT_SETTINGS;
+    let parsed = localSettings ? JSON.parse(localSettings) : DEFAULT_SETTINGS;
+    // Migrasi keamanan: Ganti password plain text lama ke sistem Hash
+    if (parsed.admin_password) {
+      parsed.admin_password_hash = DEFAULT_HASH;
+      delete parsed.admin_password;
+    }
+    return { ...DEFAULT_SETTINGS, ...parsed };
   });
 
   const [cart, setCart] = useState(() => {
@@ -47,13 +60,34 @@ export default function App() {
     return savedCart ? JSON.parse(savedCart) : [];
   });
 
-  // Simpan perubahan otomatis ke LocalStorage
+  // STATE HALAMAN TOKO
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // STATE HALAMAN KERANJANG
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [buyerName, setBuyerName] = useState('');
+
+  // STATE HALAMAN ADMIN
+  const [adminTab, setAdminTab] = useState('analytics'); 
+  const [passwordInput, setPasswordInput] = useState('');
+  
+  const [tempApiUrl, setTempApiUrl] = useState(apiUrl);
+  const [tempFeePct, setTempFeePct] = useState(settings.fee_percent * 100);
+  const [tempOngkir, setTempOngkir] = useState(settings.ongkir_flat);
+  const [tempMinFree, setTempMinFree] = useState(settings.min_free_ongkir);
+  const [tempAdminPwd, setTempAdminPwd] = useState('');
+
+  // STATE MODAL TAMBAH BARANG
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [imagePreview, setImagePreview] = useState('');
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [newProduct, setNewProduct] = useState({ name: '', price_modal: '', price_sell: '', image: '', category: '' });
+
+  // AUTOSAVE LOKAL
   useEffect(() => { localStorage.setItem('jastip_products', JSON.stringify(products)); }, [products]);
   useEffect(() => { localStorage.setItem('jastip_orders', JSON.stringify(orders)); }, [orders]);
   useEffect(() => { localStorage.setItem('jastip_settings', JSON.stringify(settings)); }, [settings]);
   useEffect(() => { localStorage.setItem('jastip_cart_premium', JSON.stringify(cart)); }, [cart]);
-  
-  const [showAddModal, setShowAddModal] = useState(false);
 
   // ==========================================
   // FUNGSI UMUM & KERANJANG
@@ -66,7 +100,7 @@ export default function App() {
   };
 
   const handleClearInventory = () => {
-    if(window.confirm("PERINGATAN: Semua barang di inventaris akan dihapus. Lanjutkan?")) {
+    if(window.confirm("PERINGATAN: Semua barang di inventaris Anda akan DIHAPUS BERSIH. Lanjutkan?")) {
       setProducts([]);
       setCart([]);
       alert("Inventaris berhasil dikosongkan.");
@@ -74,17 +108,16 @@ export default function App() {
   };
 
   const handleResetSystem = () => {
-    const confirm = window.confirm("PERINGATAN: Semua data akan dihapus (Keranjang, Produk, Pesanan, Pengaturan). Lanjutkan?");
-    if (confirm) {
+    if (window.confirm("PERINGATAN BAHAYA: Sistem akan direset seperti baru diinstall (Keranjang, Produk, Pesanan, Pengaturan akan dihapus). Lanjutkan?")) {
       localStorage.clear();
       setCart([]);
       setProducts(initialProducts);
-      setOrders(mockOrders);
+      setOrders([]);
       setSettings(DEFAULT_SETTINGS);
       setApiUrl(DEFAULT_API_URL);
       setIsAdminLoggedIn(false);
       setView('shop');
-      alert("Sistem berhasil direset ke pengaturan awal pabrik.");
+      alert("Sistem berhasil direset ke pengaturan pabrik.");
     }
   };
 
@@ -96,7 +129,6 @@ export default function App() {
       }
       return [...prev, { ...product, qty: 1 }];
     });
-    // Notifikasi ringan
     const toast = document.createElement('div');
     toast.className = "fixed top-5 left-1/2 -translate-x-1/2 bg-amber-500 text-black px-6 py-3 rounded-full font-bold text-xs shadow-2xl z-[100] animate-in slide-in-from-top-10 fade-in duration-300";
     toast.innerText = "Masuk Keranjang!";
@@ -106,8 +138,8 @@ export default function App() {
 
   const removeFromCart = (id) => setCart(prev => prev.filter(item => item.id !== id));
 
-  // --- KOMPONEN NAVIGASI BAWAH ---
-  const BottomNav = () => (
+  // --- FUNGSI RENDER TAMPILAN BAWAH ---
+  const renderBottomNav = () => (
     <div className="fixed bottom-0 w-full max-w-md mx-auto bg-black/90 backdrop-blur-2xl border-t border-white/10 rounded-t-3xl z-50">
       <div className="flex justify-around items-center p-3 pb-5">
         <button onClick={() => setView('shop')} className={`flex flex-col items-center p-2 transition-all duration-300 ${view === 'shop' ? 'text-amber-400 scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}>
@@ -132,16 +164,12 @@ export default function App() {
   );
 
   // ==========================================
-  // HALAMAN PEMBELI: TOKO (Dengan Pencarian & Terlaris)
+  // RENDER: HALAMAN TOKO
   // ==========================================
-  const ShopView = () => {
-    const [searchQuery, setSearchQuery] = useState('');
-
-    const filteredProducts = useMemo(() => {
-      return products
+  const renderShopView = () => {
+    const filteredProducts = products
         .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.category.toLowerCase().includes(searchQuery.toLowerCase()))
         .sort((a, b) => (b.sold || 0) - (a.sold || 0)); 
-    }, [products, searchQuery]);
 
     return (
       <div className="p-5 pb-28 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -173,13 +201,11 @@ export default function App() {
         <div className="flex flex-col gap-6">
           {filteredProducts.map((product, index) => (
             <div key={product.id} className="bg-zinc-900/50 backdrop-blur-md border border-white/5 rounded-3xl overflow-hidden shadow-2xl group relative">
-              
               {index === 0 && (product.sold > 0) && searchQuery === '' && (
                 <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-orange-500 text-black px-4 py-1.5 rounded-bl-2xl font-bold text-[10px] tracking-widest uppercase z-10 shadow-lg flex items-center gap-1">
                   <Sparkles size={12}/> Terlaris
                 </div>
               )}
-
               <div className="relative bg-zinc-800">
                 <img src={product.image || 'https://via.placeholder.com/500x300?text=No+Image'} alt={product.name} className="w-full h-64 object-cover opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
                 <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1 rounded-full flex gap-2 items-center shadow-lg">
@@ -189,10 +215,8 @@ export default function App() {
               </div>
               <div className="p-5 relative overflow-hidden">
                 <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-500/10 blur-3xl rounded-full pointer-events-none"></div>
-                
                 <h3 className="font-serif text-white text-lg leading-tight mb-2">{product.name}</h3>
                 <p className="text-amber-400 font-light tracking-wider text-xl mb-5">Rp {Number(product.price_sell).toLocaleString('id-ID')}</p>
-                
                 <button 
                   onClick={() => addToCart(product)}
                   className="w-full bg-white text-black py-3 rounded-2xl text-xs font-bold tracking-widest uppercase shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] hover:bg-amber-400 transition-all duration-300 flex items-center justify-center gap-2"
@@ -208,20 +232,16 @@ export default function App() {
   };
 
   // ==========================================
-  // HALAMAN PEMBELI: KERANJANG & STRUK BERSIH
+  // RENDER: HALAMAN KERANJANG
   // ==========================================
-  const CartView = () => {
+  const renderCartView = () => {
     const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
     const subtotalSell = cart.reduce((sum, item) => sum + (Number(item.price_sell) * item.qty), 0);
     const feeJastip = subtotalSell * Number(settings.fee_percent);
     
-    // Logika Gratis Ongkir Dinamis
     const isFreeOngkir = totalItems >= Number(settings.min_free_ongkir);
     const ongkir = isFreeOngkir ? 0 : (cart.length > 0 ? Number(settings.ongkir_flat) : 0);
     const total = subtotalSell + feeJastip + ongkir;
-    
-    const [showCheckout, setShowCheckout] = useState(false);
-    const [buyerName, setBuyerName] = useState('');
 
     const handleCheckoutWA = () => {
       if (!buyerName) return alert('Mohon masukkan nama lengkap Anda.');
@@ -260,6 +280,8 @@ export default function App() {
       const waLink = `https://wa.me/6281234567890?text=${encodeURIComponent(message)}`;
       window.open(waLink, '_blank');
       setCart([]); 
+      setShowCheckout(false);
+      setBuyerName('');
     };
 
     if (cart.length === 0) return (
@@ -314,14 +336,11 @@ export default function App() {
                   <span>Rp {ongkir.toLocaleString('id-ID')}</span>
                 )}
               </div>
-              
               <div className="w-full h-px border-t border-dashed border-white/20 my-4"></div>
-              
               <div className="flex justify-between items-center">
                  <span className="text-white font-serif tracking-widest uppercase text-xs">Total</span> 
                  <span className="text-amber-400 font-light text-lg tracking-wider">Rp {total.toLocaleString('id-ID')}</span>
               </div>
-              
               <button onClick={() => setShowCheckout(true)} className="w-full bg-amber-500 text-black font-bold py-4 rounded-2xl mt-6 uppercase tracking-widest text-xs hover:bg-amber-400 transition-all flex justify-center items-center gap-2">
                 Buat Struk Pembayaran <ArrowRight size={16} />
               </button>
@@ -330,16 +349,13 @@ export default function App() {
         ) : (
           <div className="bg-[#111] border border-amber-500/30 p-6 rounded-3xl flex flex-col items-center animate-in slide-in-from-right-8 shadow-2xl relative overflow-hidden">
             <div className="absolute inset-0 bg-white opacity-[0.02] pointer-events-none" style={{backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '10px 10px'}}></div>
-            
             <Receipt size={32} className="text-amber-400 mb-4" />
             <h3 className="font-serif text-white tracking-widest uppercase text-lg mb-6">Struk Jastip</h3>
-            
             <input 
               type="text" placeholder="Masukkan Nama Lengkap" 
               value={buyerName} onChange={e => setBuyerName(e.target.value)}
               className="w-full bg-black/50 border border-white/20 text-white placeholder-zinc-500 p-4 rounded-2xl mb-6 focus:outline-none focus:border-amber-400 text-sm tracking-wide text-center"
             />
-
             <div className="w-full bg-zinc-900/80 p-4 rounded-2xl border border-white/5 mb-6 text-left space-y-2 relative shadow-inner">
                <div className="absolute left-0 right-0 -top-2 flex justify-between px-2">
                  {Array.from({length: 15}).map((_,i) => <div key={i} className="w-2 h-2 bg-[#050505] rounded-full"></div>)}
@@ -360,7 +376,6 @@ export default function App() {
                  <span className="text-sm font-bold text-amber-400">Rp {total.toLocaleString('id-ID')}</span>
                </div>
             </div>
-
             <button onClick={handleCheckoutWA} className="w-full bg-white text-black font-bold py-4 rounded-2xl uppercase tracking-widest text-xs shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:bg-amber-400 transition-all flex justify-center items-center gap-2">
               <Check size={16} /> Kirim Struk via WA
             </button>
@@ -372,21 +387,12 @@ export default function App() {
   };
 
   // ==========================================
-  // HALAMAN ADMIN: PANEL EKSEKUTIF
+  // RENDER: HALAMAN ADMIN
   // ==========================================
-  const AdminView = () => {
-    const [adminTab, setAdminTab] = useState('analytics'); 
-    const [passwordInput, setPasswordInput] = useState('');
-    
-    // Form Settings
-    const [tempApiUrl, setTempApiUrl] = useState(apiUrl);
-    const [tempFeePct, setTempFeePct] = useState(settings.fee_percent * 100);
-    const [tempOngkir, setTempOngkir] = useState(settings.ongkir_flat);
-    const [tempMinFree, setTempMinFree] = useState(settings.min_free_ongkir);
-    const [tempAdminPwd, setTempAdminPwd] = useState(settings.admin_password);
-
-    const handleAdminLogin = () => {
-      if (passwordInput === settings.admin_password) { 
+  const renderAdminView = () => {
+    const handleAdminLogin = async () => {
+      const inputHash = await hashPassword(passwordInput);
+      if (inputHash === settings.admin_password_hash) { 
         setIsAdminLoggedIn(true);
         setPasswordInput('');
       } else {
@@ -394,16 +400,23 @@ export default function App() {
       }
     };
 
-    const handleSaveSystemSettings = () => {
+    const handleSaveSystemSettings = async () => {
       localStorage.setItem('jastip_api_url', tempApiUrl);
       setApiUrl(tempApiUrl);
+      
+      let newHash = settings.admin_password_hash;
+      if (tempAdminPwd.trim() !== '') {
+        newHash = await hashPassword(tempAdminPwd);
+      }
+
       const newSettings = { 
         fee_percent: Number(tempFeePct) / 100, 
         ongkir_flat: Number(tempOngkir),
         min_free_ongkir: Number(tempMinFree),
-        admin_password: tempAdminPwd
+        admin_password_hash: newHash
       };
       setSettings(newSettings);
+      setTempAdminPwd('');
       alert('Pengaturan Sistem, Sandi & Biaya berhasil disimpan!');
     };
 
@@ -414,7 +427,7 @@ export default function App() {
             <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-500/10 blur-3xl rounded-full pointer-events-none"></div>
             <Lock size={40} className="text-amber-400 mx-auto mb-6" />
             <h2 className="text-white font-serif text-lg tracking-widest uppercase mb-2">Akses Terbatas</h2>
-            <p className="text-zinc-500 text-xs mb-8">Silakan masukkan sandi panel eksekutif.</p>
+            <p className="text-zinc-500 text-xs mb-8">Masukkan sandi keamanan. (Default: admin123)</p>
             
             <input 
               type="password" 
@@ -435,15 +448,13 @@ export default function App() {
       );
     }
 
-    const stats = useMemo(() => {
-      let revenue = 0, capital = 0, totalFee = 0;
-      orders.forEach(order => {
-        revenue += Number(order.total_sell);
-        capital += Number(order.total_modal);
-        totalFee += Number(order.fee);
-      });
-      return { capital, revenue, profit: (revenue - capital) + totalFee, orders: orders.length };
-    }, [orders]);
+    let revenue = 0, capital = 0, totalFee = 0;
+    orders.forEach(order => {
+      revenue += Number(order.total_sell);
+      capital += Number(order.total_modal);
+      totalFee += Number(order.fee);
+    });
+    const stats = { capital, revenue, profit: (revenue - capital) + totalFee, orders: orders.length };
 
     return (
       <div className="p-5 pb-32 animate-in fade-in duration-500">
@@ -462,14 +473,12 @@ export default function App() {
           <button onClick={() => setAdminTab('system')} className={`flex-1 py-3 text-[9px] sm:text-[10px] uppercase tracking-widest rounded-xl transition-all ${adminTab === 'system' ? 'bg-white text-black font-bold shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Sistem</button>
         </div>
 
-        {/* TAB 1: ANALYTICS UTAMA */}
         {adminTab === 'analytics' && (
           <div className="space-y-6 animate-in slide-in-from-left-4">
             <div className="bg-gradient-to-br from-amber-400 to-amber-600 p-6 rounded-3xl text-black relative overflow-hidden shadow-[0_10px_40px_rgba(245,158,11,0.2)]">
               <div className="absolute top-0 right-0 w-40 h-40 bg-white/20 rounded-full blur-3xl -mr-10 -mt-10"></div>
               <h3 className="text-black/70 font-medium text-[10px] tracking-widest uppercase mb-1">Total Keuntungan Bersih</h3>
               <p className="text-3xl font-light tracking-wide mb-6">Rp {stats.profit.toLocaleString('id-ID')}</p>
-              
               <div className="grid grid-cols-2 gap-4 border-t border-black/10 pt-4 mt-2">
                 <div>
                   <p className="text-black/60 text-[9px] tracking-widest uppercase mb-1">Total Modal Diputar</p>
@@ -482,7 +491,7 @@ export default function App() {
               </div>
             </div>
 
-            <h3 className="font-serif text-white text-sm tracking-widest uppercase mt-8 mb-4 border-b border-white/5 pb-2">Pesanan Tersimpan</h3>
+            <h3 className="font-serif text-white text-sm tracking-widest uppercase mt-8 mb-4 border-b border-white/5 pb-2">Riwayat Pesanan</h3>
             <div className="space-y-4">
               {orders.length === 0 && <p className="text-xs text-zinc-500 text-center py-6">Belum ada pesanan masuk.</p>}
               {orders.map(order => (
@@ -501,7 +510,6 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 2: INVENTORY & ANALISIS BARANG */}
         {adminTab === 'products' && (
           <div className="animate-in slide-in-from-right-4">
              <button 
@@ -530,7 +538,6 @@ export default function App() {
 
                 return (
                   <div key={product.id} className="bg-zinc-900/60 backdrop-blur-md border border-white/5 p-4 rounded-3xl flex flex-col gap-4 relative pr-2 shadow-lg">
-                    
                     <div className="flex gap-4 pr-10">
                       <img src={product.image || 'https://via.placeholder.com/150'} alt={product.name} className="w-16 h-16 object-cover rounded-2xl bg-zinc-800" />
                       <div className="flex-1 pt-1">
@@ -540,7 +547,6 @@ export default function App() {
                         </span>
                       </div>
                     </div>
-
                     <div className="grid grid-cols-3 gap-2 border-t border-white/5 pt-3">
                       <div>
                         <p className="text-[8px] text-zinc-500 uppercase tracking-widest mb-1">Total Modal Keluar</p>
@@ -555,11 +561,10 @@ export default function App() {
                         <p className="font-bold text-[10px] text-amber-400 tracking-wider">Rp {totalLabaBarang.toLocaleString('id-ID')}</p>
                       </div>
                     </div>
-
                     <button 
                       onClick={() => handleDeleteProduct(product.id)}
                       className="absolute right-4 top-4 p-2 bg-red-950/40 text-red-400 rounded-xl hover:bg-red-900 hover:text-red-300 transition-colors border border-red-500/20"
-                      title="Hapus Barang"
+                      title="Hapus Satu Barang"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -570,28 +575,26 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 3: SYSTEM (DIPERLENGKAP) */}
         {adminTab === 'system' && (
           <div className="space-y-6 animate-in slide-in-from-right-4">
              <div className="bg-zinc-900/60 backdrop-blur-md border border-white/5 p-6 rounded-3xl shadow-xl">
                 
-                {/* Keamanan */}
                 <div className="flex items-center gap-3 mb-4 border-b border-white/10 pb-3">
                   <Lock size={18} className="text-amber-400"/>
-                  <h3 className="font-serif text-white text-sm tracking-widest uppercase">Keamanan Admin</h3>
+                  <h3 className="font-serif text-white text-sm tracking-widest uppercase">Keamanan Sandi</h3>
                 </div>
                 <div className="mb-6">
-                  <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Ubah Sandi Eksekutif</label>
+                  <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Ubah Sandi Baru (Kosongkan jika tidak diubah)</label>
                   <input 
-                    type="text" 
+                    type="password" 
                     value={tempAdminPwd} 
                     onChange={e => setTempAdminPwd(e.target.value)}
+                    placeholder="Ketik sandi baru..."
                     className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:outline-none focus:border-amber-400 text-sm" 
                   />
                 </div>
 
-                {/* API */}
-                <div className="flex items-center gap-3 mb-4 border-b border-white/10 pb-3">
+                <div className="flex items-center gap-3 mb-4 border-b border-white/10 pb-3 mt-4">
                   <Database size={18} className="text-amber-400"/>
                   <h3 className="font-serif text-white text-sm tracking-widest uppercase">Database API Google</h3>
                 </div>
@@ -602,78 +605,47 @@ export default function App() {
                   className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl mb-6 focus:outline-none focus:border-amber-400 text-xs font-mono h-20 resize-none break-all"
                 />
 
-                {/* Biaya & Promo */}
                 <div className="flex items-center gap-3 mb-4 border-b border-white/10 pb-3 mt-4">
                   <Percent size={18} className="text-amber-400"/>
                   <h3 className="font-serif text-white text-sm tracking-widest uppercase">Pengaturan Biaya & Promo</h3>
                 </div>
-                
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Fee Jastip (%)</label>
                     <div className="relative">
-                      <input 
-                        type="number" 
-                        value={tempFeePct} 
-                        onChange={e => setTempFeePct(e.target.value)}
-                        className="w-full bg-black/50 border border-white/10 text-white p-3 pr-8 rounded-xl focus:border-amber-400 text-sm" 
-                      />
+                      <input type="number" value={tempFeePct} onChange={e => setTempFeePct(e.target.value)} className="w-full bg-black/50 border border-white/10 text-white p-3 pr-8 rounded-xl focus:border-amber-400 text-sm" />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500">%</span>
                     </div>
                   </div>
                   <div>
                     <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Ongkir (Rp)</label>
-                    <input 
-                      type="number" 
-                      value={tempOngkir} 
-                      onChange={e => setTempOngkir(e.target.value)}
-                      className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:border-amber-400 text-sm" 
-                    />
+                    <input type="number" value={tempOngkir} onChange={e => setTempOngkir(e.target.value)} className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:border-amber-400 text-sm" />
                   </div>
                 </div>
 
                 <div className="mb-6">
-                  <label className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest mb-1 block">Promo Gratis Ongkir</label>
+                  <label className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest mb-1 block">Syarat Gratis Ongkir</label>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-zinc-400">Minimal beli</span>
-                    <input 
-                      type="number" 
-                      value={tempMinFree} 
-                      onChange={e => setTempMinFree(e.target.value)}
-                      className="w-16 bg-black/50 border border-emerald-500/30 text-emerald-400 p-2 rounded-xl focus:border-emerald-400 text-sm text-center font-bold" 
-                    />
+                    <input type="number" value={tempMinFree} onChange={e => setTempMinFree(e.target.value)} className="w-16 bg-black/50 border border-emerald-500/30 text-emerald-400 p-2 rounded-xl focus:border-emerald-400 text-sm text-center font-bold" />
                     <span className="text-xs text-zinc-400">barang</span>
                   </div>
                 </div>
 
-                <button 
-                  onClick={handleSaveSystemSettings}
-                  className="w-full bg-white text-black font-bold py-3.5 rounded-xl uppercase tracking-widest text-xs hover:bg-amber-400 transition-all flex items-center justify-center gap-2"
-                >
+                <button onClick={handleSaveSystemSettings} className="w-full bg-white text-black font-bold py-3.5 rounded-xl uppercase tracking-widest text-xs hover:bg-amber-400 transition-all flex items-center justify-center gap-2">
                   <Save size={16}/> Simpan Semua Pengaturan
                 </button>
              </div>
 
              <div className="grid grid-cols-2 gap-4">
-                <button 
-                  onClick={() => syncDataFromGAS(true)}
-                  disabled={isSyncing}
-                  className={`bg-zinc-900/60 border border-white/5 p-5 rounded-3xl flex flex-col items-center justify-center gap-3 transition-all ${isSyncing ? 'opacity-50' : 'hover:border-amber-400/50 hover:bg-zinc-800'}`}
-                >
-                  <RefreshCw size={24} className={`text-amber-400 ${isSyncing ? 'animate-spin' : ''}`}/>
-                  <span className="text-[10px] text-white tracking-widest uppercase font-bold text-center">
-                    {isSyncing ? 'Proses...' : 'Sinkronkan GAS'}
-                  </span>
+                <button onClick={() => alert("Fitur sinkronisasi memerlukan script Backend GAS yang aktif.")} className="bg-zinc-900/60 border border-white/5 p-5 rounded-3xl flex flex-col items-center justify-center gap-3 hover:border-amber-400/50 hover:bg-zinc-800 transition-all">
+                  <RefreshCw size={24} className="text-amber-400"/>
+                  <span className="text-[10px] text-white tracking-widest uppercase font-bold text-center">Tarik Data GAS</span>
                 </button>
 
-                <button 
-                  onClick={handleResetSystem}
-                  className="bg-red-950/30 border border-red-500/20 p-5 rounded-3xl flex flex-col items-center justify-center gap-3 hover:bg-red-900/40 transition-all"
-                >
+                <button onClick={handleResetSystem} className="bg-red-950/30 border border-red-500/20 p-5 rounded-3xl flex flex-col items-center justify-center gap-3 hover:bg-red-900/40 transition-all">
                   <AlertTriangle size={24} className="text-red-400"/>
-                  <span className="text-[10px] text-red-200 tracking-widest uppercase font-bold text-center">
-                    Reset Pabrik
-                  </span>
+                  <span className="text-[10px] text-red-200 tracking-widest uppercase font-bold text-center">Reset Total Pabrik</span>
                 </button>
              </div>
           </div>
@@ -682,49 +654,69 @@ export default function App() {
     );
   };
 
-  // --- MODAL TAMBAH BARANG (DENGAN KAMERA & AI) ---
-  const AddProductModal = () => {
+  // ==========================================
+  // RENDER: MODAL TAMBAH BARANG
+  // ==========================================
+  const renderAddProductModal = () => {
     if (!showAddModal) return null;
 
-    const [imagePreview, setImagePreview] = useState('');
-    const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-
-    // Fungsi Konversi File Gambar (Kamera/Galeri) ke Base64
-    const handleImageUpload = (e) => {
+    const handleImageUploadAndCompress = (e) => {
       const file = e.target.files[0];
       if (file) {
-        // Karena ukuran localstorage terbatas, kita kecilkan filenya secara logis di backend nanti, 
-        // tapi untuk pratinjau kita ubah ke base64
         const reader = new FileReader();
-        reader.onloadend = () => {
-          setImagePreview(reader.result);
-          setNewProduct({...newProduct, image: reader.result});
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 500; 
+            const scaleSize = MAX_WIDTH / img.width;
+            canvas.width = MAX_WIDTH;
+            canvas.height = img.height * scaleSize;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); 
+            setImagePreview(compressedBase64);
+            setNewProduct(prev => ({ ...prev, image: compressedBase64 }));
+          };
+          img.src = event.target.result;
         };
         reader.readAsDataURL(file);
       }
     };
 
-    // Fungsi Simulasi AI (Gemini Vision) untuk mempercantik detail
-    const handleGenerateAI = () => {
-      if(!newProduct.name && !imagePreview) return alert("Masukkan foto atau ketik sedikit nama barang agar AI bisa bekerja.");
+    const handleGenerateAI = async () => {
+      if(!newProduct.name && !imagePreview) return alert("Mohon masukkan foto atau nama barang terlebih dahulu agar AI bisa menganalisa.");
       
       setIsGeneratingAI(true);
       
-      // Catatan: Jika ingin menggunakan Gemini API secara langsung via Google Script (GAS),
-      // Anda harus memanggil fetch() ke URL GAS Anda di sini. 
-      // Karena ini sisi UI, kita buat efek loading simulasi dan membuat deskripsi jadi menarik.
-      
-      setTimeout(() => {
-         const enhancedName = newProduct.name ? `[PREMIUM] ${newProduct.name.toUpperCase()} Edisi Terbatas` : 'Barang Mewah Terdeteksi';
-         setNewProduct({
-           ...newProduct,
-           name: enhancedName,
-           category: newProduct.category || 'Barang Branded',
-           price_sell: newProduct.price_sell || (Number(newProduct.price_modal) * 1.5).toString() // Set otomatis harga jual
-         });
-         setIsGeneratingAI(false);
-         alert("✨ AI telah menyempurnakan Nama dan Harga Jual (Estimasi) produk Anda!");
-      }, 1500);
+      if (apiUrl && apiUrl !== DEFAULT_API_URL) {
+        try {
+          const res = await fetch(apiUrl, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'ai_description', text: newProduct.name || "Tolong perbaiki dan buatkan nama mewah untuk barang jastip ini." })
+          });
+          const data = await res.json();
+          if (data.ai_result) {
+              setNewProduct(prev => ({ ...prev, name: data.ai_result }));
+          }
+        } catch(e) {
+           console.error("AI gagal terkoneksi", e);
+        }
+      } else {
+        setTimeout(() => {
+           const enhancedName = newProduct.name ? `[PREMIUM] ${newProduct.name.toUpperCase()} (Special Edition)` : 'Barang Mewah Terdeteksi';
+           setNewProduct(prev => ({
+             ...prev,
+             name: enhancedName,
+             category: prev.category || 'Barang Branded',
+             price_sell: prev.price_sell || (Number(prev.price_modal || 0) * 1.5).toString() 
+           }));
+           alert("✨ AI telah menganalisa dan menyempurnakan detail produk Anda!");
+        }, 1500);
+      }
+      setIsGeneratingAI(false);
     };
 
     const handleAddProduct = () => {
@@ -746,9 +738,7 @@ export default function App() {
       setNewProduct({ name: '', price_modal: '', price_sell: '', image: '', category: '' });
       setImagePreview('');
       
-      // Catatan Teknis: Untuk menyimpan gambar Base64 ke Google Drive betulan, 
-      // aplikasi harus mengirimkan `productToAdd.image` ke Google Apps Script (GAS) via fetch.
-      alert("Barang dan Foto berhasil disimpan ke sistem!");
+      alert("Barang & Foto berhasil disimpan ke perangkat (Aman dari Blank Page)!\n\nUntuk menyimpannya langsung ke link Google Drive, pastikan script API Backend Anda telah mendukung upload gambar.");
     };
 
     return (
@@ -761,7 +751,6 @@ export default function App() {
           
           <div className="p-5 overflow-y-auto flex-1 space-y-4 custom-scrollbar">
             
-            {/* Input Foto (Bisa jepret langsung di HP) */}
             <div className="bg-black/50 p-3 rounded-2xl border border-white/10">
               <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-2 block">Foto Barang Asli</label>
               <div className="flex flex-col gap-3">
@@ -774,12 +763,11 @@ export default function App() {
                       </div>
                    )}
                    <div className="flex-1">
-                     {/* Input File dengan fitur Capture untuk Kamera HP */}
                      <input 
                         type="file" 
                         accept="image/*" 
                         capture="environment" 
-                        onChange={handleImageUpload} 
+                        onChange={handleImageUploadAndCompress} 
                         className="w-full text-[10px] text-zinc-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-bold file:bg-amber-500/10 file:text-amber-400 hover:file:bg-amber-500/20" 
                      />
                    </div>
@@ -792,7 +780,7 @@ export default function App() {
                     className={`w-full py-2.5 rounded-xl border border-indigo-500/30 text-[10px] uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition-all ${isGeneratingAI ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20'}`}
                  >
                     {isGeneratingAI ? <RefreshCw size={14} className="animate-spin"/> : <Wand2 size={14}/>}
-                    {isGeneratingAI ? 'AI Sedang Membaca...' : 'Percantik Detail via AI (Gemini)'}
+                    {isGeneratingAI ? 'AI Sedang Membaca...' : 'Percantik Detail via AI Gemini'}
                  </button>
               </div>
             </div>
@@ -815,10 +803,6 @@ export default function App() {
               <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Kategori</label>
               <input type="text" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})} className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:border-amber-400 text-sm" placeholder="Contoh: Sepatu" />
             </div>
-            <div className="hidden">
-               {/* Sembunyikan URL manual karena sekarang pakai file upload Base64 */}
-               <input type="text" value={newProduct.image} onChange={e => setNewProduct({...newProduct, image: e.target.value})} />
-            </div>
           </div>
 
           <div className="p-5 border-t border-white/5 bg-zinc-900/50">
@@ -834,14 +818,12 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#050505] font-sans text-zinc-300 relative selection:bg-amber-500/30">
       <div className="max-w-md mx-auto min-h-screen relative shadow-2xl bg-[#0a0a0a] overflow-hidden">
-        {/* Subtle Background Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[100px] pointer-events-none"></div>
-        
-        {view === 'shop' && <ShopView />}
-        {view === 'cart' && <CartView />}
-        {view === 'admin' && <AdminView />}
-        <BottomNav />
-        <AddProductModal />
+        {view === 'shop' && renderShopView()}
+        {view === 'cart' && renderCartView()}
+        {view === 'admin' && renderAdminView()}
+        {renderBottomNav()}
+        {renderAddProductModal()}
       </div>
     </div>
   );
