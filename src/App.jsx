@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ShoppingCart, Home, Settings, Plus, Image as ImageIcon, Package, Check, Trash2, ArrowRight, Diamond } from 'lucide-react';
 
-// --- MOCK DATA PREVIEW ---
+// --- MOCK DATA PREVIEW (Sebagai cadangan jika API belum terhubung) ---
 const initialProducts = [
   { id: '1', name: 'Tas Chanel Classic Flap', price_modal: 85000000, price_sell: 87500000, stock: 2, category: 'Tas Mewah', image: 'https://images.unsplash.com/photo-1584916201218-f4242ceb4809?auto=format&fit=crop&w=500&q=80' },
   { id: '2', name: 'Jam Tangan Rolex Submariner', price_modal: 150000000, price_sell: 155000000, stock: 1, category: 'Jam Tangan', image: 'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?auto=format&fit=crop&w=500&q=80' },
@@ -13,6 +13,12 @@ const mockOrders = [
   { id: 'ORD-002', date: '2026-04-21', customer: 'Ibu Sarah', total_modal: 2500000, total_sell: 2800000, fee: 140000, ongkir: 5000, grand_total: 2945000, status: 'Diproses' },
 ];
 
+// ==========================================
+// PENGATURAN API GOOGLE SHEETS
+// ==========================================
+// Ganti tulisan di bawah ini dengan URL Web App dari Google Apps Script Anda
+const API_URL = "https://script.google.com/macros/s/AKfycby7ACCocOywxV3Cx0QEbk2B6Axz7HptgX4zMmi3ApTdcsBxysch0K8xaKkUBgjBkNdtaQ/exec"; 
+
 export default function App() {
   const [view, setView] = useState('shop');
   const [products, setProducts] = useState(initialProducts);
@@ -20,6 +26,36 @@ export default function App() {
   const [orders, setOrders] = useState(mockOrders);
   const [settings, setSettings] = useState({ fee_percent: 0.05, ongkir_flat: 5000 });
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+
+  // ==========================================
+  // AMBIL DATA DARI GOOGLE SHEETS (Otomatis)
+  // ==========================================
+  useEffect(() => {
+    const fetchDataFromGAS = async () => {
+      // Jika API_URL belum diganti, hentikan proses (gunakan mock data)
+      if (API_URL === "https://script.google.com/macros/s/AKfycby7ACCocOywxV3Cx0QEbk2B6Axz7HptgX4zMmi3ApTdcsBxysch0K8xaKkUBgjBkNdtaQ/execT") return;
+
+      try {
+        // Ambil Data Produk
+        const resProducts = await fetch(`${API_URL}?action=getProducts`);
+        const dataProducts = await resProducts.json();
+        if (!dataProducts.error && dataProducts.length > 0) {
+          setProducts(dataProducts);
+        }
+
+        // Ambil Data Pengaturan (Fee & Ongkir)
+        const resSettings = await fetch(`${API_URL}?action=getSettings`);
+        const dataSettings = await resSettings.json();
+        if (!dataSettings.error) {
+          setSettings(dataSettings);
+        }
+      } catch (error) {
+        console.error("Gagal menarik data dari Google Sheets:", error);
+      }
+    };
+
+    fetchDataFromGAS();
+  }, []); // Berjalan satu kali saat aplikasi pertama kali dimuat
 
   // Load Cart dari LocalStorage
   useEffect(() => {
@@ -94,7 +130,7 @@ export default function App() {
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-500/10 blur-3xl rounded-full pointer-events-none"></div>
               
               <h3 className="font-serif text-white text-lg leading-tight mb-2">{product.name}</h3>
-              <p className="text-amber-400 font-light tracking-wider text-lg mb-5">Rp {product.price_sell.toLocaleString('id-ID')}</p>
+              <p className="text-amber-400 font-light tracking-wider text-lg mb-5">Rp {Number(product.price_sell).toLocaleString('id-ID')}</p>
               
               <button 
                 onClick={() => addToCart(product)}
@@ -111,7 +147,7 @@ export default function App() {
 
   // --- HALAMAN PEMBELI: KERANJANG ---
   const CartView = () => {
-    const subtotalSell = cart.reduce((sum, item) => sum + (item.price_sell * item.qty), 0);
+    const subtotalSell = cart.reduce((sum, item) => sum + (Number(item.price_sell) * item.qty), 0);
     const feeJastip = subtotalSell * settings.fee_percent;
     const total = subtotalSell + feeJastip + (cart.length > 0 ? settings.ongkir_flat : 0);
     const [showCheckout, setShowCheckout] = useState(false);
@@ -122,10 +158,10 @@ export default function App() {
       
       let message = `*RESERVASI BARU LUXURY JASTIP*\n\nKlien: ${buyerName}\n\n*Detail Pesanan:*\n`;
       cart.forEach(item => {
-        message += `▫️ ${item.name} (${item.qty}x)\n  Rp ${(item.price_sell * item.qty).toLocaleString('id-ID')}\n`;
+        message += `▫️ ${item.name} (${item.qty}x)\n  Rp ${(Number(item.price_sell) * item.qty).toLocaleString('id-ID')}\n`;
       });
       message += `\nSubtotal: Rp ${subtotalSell.toLocaleString('id-ID')}`;
-      message += `\nBiaya Jasa (5%): Rp ${feeJastip.toLocaleString('id-ID')}`;
+      message += `\nBiaya Jasa (${settings.fee_percent * 100}%): Rp ${feeJastip.toLocaleString('id-ID')}`;
       message += `\nOngkos Kirim: Rp ${settings.ongkir_flat.toLocaleString('id-ID')}`;
       message += `\n\n*TOTAL TAGIHAN: Rp ${total.toLocaleString('id-ID')}*`;
       
@@ -154,7 +190,7 @@ export default function App() {
                   <img src={item.image} alt={item.name} className="w-20 h-20 object-cover rounded-2xl" />
                   <div className="flex-1">
                     <h4 className="font-serif text-white text-sm leading-tight">{item.name}</h4>
-                    <p className="text-amber-400 font-light text-xs mt-2 tracking-wider">Rp {item.price_sell.toLocaleString('id-ID')}</p>
+                    <p className="text-amber-400 font-light text-xs mt-2 tracking-wider">Rp {Number(item.price_sell).toLocaleString('id-ID')}</p>
                     <p className="text-zinc-500 text-[10px] mt-1 tracking-widest uppercase">Jml: {item.qty}</p>
                   </div>
                   <button onClick={() => removeFromCart(item.id)} className="p-3 text-zinc-500 hover:text-red-400 transition-colors">
@@ -259,9 +295,9 @@ export default function App() {
     const stats = useMemo(() => {
       let revenue = 0, capital = 0, totalFee = 0;
       orders.filter(o => o.status === 'Selesai').forEach(order => {
-        revenue += order.total_sell;
-        capital += order.total_modal;
-        totalFee += order.fee;
+        revenue += Number(order.total_sell);
+        capital += Number(order.total_modal);
+        totalFee += Number(order.fee);
       });
       return { capital, revenue, profit: (revenue - capital) + totalFee, orders: orders.length };
     }, [orders]);
@@ -311,7 +347,7 @@ export default function App() {
                   <div>
                     <p className="font-serif text-white text-sm mb-1">{order.customer}</p>
                     <p className="text-[10px] text-zinc-500 tracking-widest">{order.id}</p>
-                    <p className="text-amber-400 font-light text-xs mt-2 tracking-wider">Rp {order.grand_total.toLocaleString('id-ID')}</p>
+                    <p className="text-amber-400 font-light text-xs mt-2 tracking-wider">Rp {Number(order.grand_total).toLocaleString('id-ID')}</p>
                   </div>
                   <span className={`text-[9px] uppercase tracking-widest font-bold px-3 py-1.5 rounded-full border ${order.status === 'Selesai' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
                     {order.status}
@@ -340,11 +376,11 @@ export default function App() {
                     <div className="flex justify-between items-end">
                       <div>
                         <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Harga Jual</p>
-                        <p className="font-light text-xs text-amber-400 tracking-wider">Rp {product.price_sell.toLocaleString('id-ID')}</p>
+                        <p className="font-light text-xs text-amber-400 tracking-wider">Rp {Number(product.price_sell).toLocaleString('id-ID')}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Modal</p>
-                        <p className="font-light text-xs text-zinc-300 tracking-wider">Rp {product.price_modal.toLocaleString('id-ID')}</p>
+                        <p className="font-light text-xs text-zinc-300 tracking-wider">Rp {Number(product.price_modal).toLocaleString('id-ID')}</p>
                       </div>
                     </div>
                   </div>
