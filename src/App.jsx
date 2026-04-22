@@ -132,7 +132,7 @@ export default function App() {
       <div className="flex justify-around items-center p-3 pb-5">
         <button onClick={() => setView('shop')} className={`flex flex-col items-center p-2 transition-all duration-300 ${view === 'shop' ? 'text-amber-400 scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}>
           <Diamond size={22} strokeWidth={view === 'shop' ? 2.5 : 2} />
-          <span className="text-[10px] font-medium mt-1 tracking-widest">BUTIK</span>
+          <span className="text-[10px] font-medium mt-1 tracking-widest">PRODUK</span>
         </button>
         <button onClick={() => setView('cart')} className={`flex flex-col items-center p-2 relative transition-all duration-300 ${view === 'cart' ? 'text-amber-400 scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}>
           <ShoppingCart size={22} strokeWidth={view === 'cart' ? 2.5 : 2} />
