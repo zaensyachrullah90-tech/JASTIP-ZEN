@@ -21,14 +21,14 @@ const initialProducts = [
   { id: '4', name: 'Kacamata Gucci Oversized', price_modal: 4000000, price_sell: 4500000, stock: 3, sold: 0, category: 'Aksesoris', status: 'PO', image: 'https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=500&q=80' },
 ];
 
-const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycby7ACCocOywxV3Cx0QEbk2B6Axz7HptgX4zMmi3ApTdcsBxysch0K8xaKkUBgjBkNdtaQ/exec";
+const DEFAULT_API_URL = "";
 const DEFAULT_SETTINGS = { 
   fee_percent: 0.05, 
   ongkir_flat: 5000, 
   min_free_ongkir: 3, 
   admin_password_hash: DEFAULT_HASH,
   sheet_url: 'https://docs.google.com/spreadsheets/d/1C4EfIpC-uCRGDfDOdm0pDG92SJDqQ_AeEGJB7HrMUJo/edit?gid=50998068#gid=50998068',
-  drive_url: 'https://drive.google.com/drive/folders/1pYE8Jv_U9neNLwxvwDTNkRJPHgbUaPYE?hl=ID'
+  drive_url: ''
 };
 
 export default function App() {
@@ -57,7 +57,6 @@ export default function App() {
       parsed.admin_password_hash = DEFAULT_HASH;
       delete parsed.admin_password;
     }
-    // Gabungkan dengan default agar sheet_url & drive_url ter-cover jika belum ada
     return { ...DEFAULT_SETTINGS, ...parsed };
   });
 
@@ -83,11 +82,54 @@ export default function App() {
   const [tempMinFree, setTempMinFree] = useState(settings.min_free_ongkir);
   const [tempAdminPwd, setTempAdminPwd] = useState('');
 
-  // STATE MODAL TAMBAH BARANG
   const [showAddModal, setShowAddModal] = useState(false);
   const [imagePreview, setImagePreview] = useState('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [newProduct, setNewProduct] = useState({ name: '', price_modal: '', price_sell: '', image: '', category: '', status: 'Ready' });
+
+  // ==========================================
+  // SINKRONISASI DATA API (OTOMATIS & MANUAL)
+  // ==========================================
+  const syncDataFromGAS = useCallback(async (isManual = false) => {
+    if (!apiUrl || apiUrl === DEFAULT_API_URL || apiUrl === "") {
+      if (isManual) alert("Mohon atur URL API Google Script terlebih dahulu di tab 'SISTEM'!");
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      // Fetch Products
+      const resProducts = await fetch(`${apiUrl}?action=getProducts`);
+      const dataProducts = await resProducts.json();
+      if (!dataProducts.error && Array.isArray(dataProducts)) setProducts(dataProducts);
+
+      // Fetch Orders
+      const resOrders = await fetch(`${apiUrl}?action=getOrders`);
+      const dataOrders = await resOrders.json();
+      if (!dataOrders.error && Array.isArray(dataOrders)) setOrders(dataOrders);
+
+      // Fetch Settings
+      const resSettings = await fetch(`${apiUrl}?action=getSettings`);
+      const dataSettings = await resSettings.json();
+      if (!dataSettings.error) {
+         setSettings(prev => ({ ...prev, fee_percent: Number(dataSettings.fee_percent) || prev.fee_percent, ongkir_flat: Number(dataSettings.ongkir_flat) || prev.ongkir_flat, min_free_ongkir: Number(dataSettings.min_free_ongkir) || prev.min_free_ongkir }));
+      }
+      
+      if (isManual) alert("Sinkronisasi database pusat berhasil! Perangkat telah diperbarui.");
+    } catch (error) {
+      if (isManual) alert("Gagal sinkronisasi. Pastikan URL API benar dan koneksi internet stabil.");
+      console.error("Fetch Error:", error);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [apiUrl]);
+
+  // Auto-sync saat aplikasi dibuka
+  useEffect(() => {
+    if (apiUrl && apiUrl !== DEFAULT_API_URL && apiUrl !== "") {
+      syncDataFromGAS();
+    }
+  }, [apiUrl, syncDataFromGAS]);
 
   // AUTOSAVE LOKAL
   useEffect(() => { localStorage.setItem('jastip_products', JSON.stringify(products)); }, [products]);
@@ -96,12 +138,17 @@ export default function App() {
   useEffect(() => { localStorage.setItem('jastip_cart_premium', JSON.stringify(cart)); }, [cart]);
 
   // ==========================================
-  // FUNGSI UMUM & KERANJANG
+  // FUNGSI UMUM, KERANJANG, DAN DB PUSH
   // ==========================================
   const handleDeleteProduct = (id) => {
     if(window.confirm('Hapus barang ini secara permanen dari etalase?')) {
       setProducts(products.filter(p => p.id !== id));
       setCart(cart.filter(item => item.id !== id));
+      
+      // Push ke Database
+      if (apiUrl && apiUrl !== "") {
+        fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'deleteProduct', id: id }) }).catch(console.error);
+      }
     }
   };
 
@@ -109,6 +156,10 @@ export default function App() {
     if(window.confirm("PERINGATAN: Semua barang di inventaris Anda akan DIHAPUS BERSIH. Lanjutkan?")) {
       setProducts([]);
       setCart([]);
+      
+      if (apiUrl && apiUrl !== "") {
+        fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'clearProducts' }) }).catch(console.error);
+      }
       alert("Inventaris berhasil dikosongkan.");
     }
   };
@@ -116,6 +167,10 @@ export default function App() {
   const handleClearOrders = () => {
     if(window.confirm("PERINGATAN: Semua riwayat pesanan (Nota) dan Statistik Keuntungan akan di-reset menjadi NOL. Lanjutkan?")) {
       setOrders([]);
+      
+      if (apiUrl && apiUrl !== "") {
+        fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'clearOrders' }) }).catch(console.error);
+      }
       alert("Statistik dan Riwayat Pesanan berhasil dikosongkan.");
     }
   };
@@ -720,9 +775,11 @@ export default function App() {
              
              {/* Action Buttons */}
              <div className="grid grid-cols-2 gap-4">
-                <button onClick={() => alert("Fitur sinkronisasi memerlukan script Backend GAS (URL API Script) yang aktif.")} className="bg-zinc-900/60 border border-white/5 p-5 rounded-3xl flex flex-col items-center justify-center gap-3 hover:border-amber-400/50 hover:bg-zinc-800 transition-all">
-                  <RefreshCw size={24} className="text-amber-400"/>
-                  <span className="text-[10px] text-white tracking-widest uppercase font-bold text-center">Tarik Data GAS</span>
+                <button onClick={() => syncDataFromGAS(true)} disabled={isSyncing} className={`bg-zinc-900/60 border border-white/5 p-5 rounded-3xl flex flex-col items-center justify-center gap-3 transition-all ${isSyncing ? 'opacity-50' : 'hover:border-amber-400/50 hover:bg-zinc-800'}`}>
+                  <RefreshCw size={24} className={`text-amber-400 ${isSyncing ? 'animate-spin' : ''}`}/>
+                  <span className="text-[10px] text-white tracking-widest uppercase font-bold text-center">
+                    {isSyncing ? 'Proses...' : 'Sinkronkan GAS'}
+                  </span>
                 </button>
 
                 <button onClick={handleResetSystem} className="bg-red-950/30 border border-red-500/20 p-5 rounded-3xl flex flex-col items-center justify-center gap-3 hover:bg-red-900/40 transition-all">
@@ -821,7 +878,11 @@ export default function App() {
       setNewProduct({ name: '', price_modal: '', price_sell: '', image: '', category: '', status: 'Ready' });
       setImagePreview('');
       
-      alert("Barang & Foto berhasil disimpan ke perangkat (Aman dari Blank Page)!\n\nUntuk menyimpannya langsung ke link Google Drive secara otomatis, pastikan script API Backend Anda telah mendukung upload gambar base64.");
+      // Push ke Database
+      if (apiUrl && apiUrl !== "") {
+        fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'addProduct', payload: productToAdd }) }).catch(console.error);
+      }
+      alert("Barang & Foto berhasil disimpan ke perangkat dan diantrikan ke Database!");
     };
 
     return (
