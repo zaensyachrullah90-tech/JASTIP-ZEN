@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { ShoppingCart, Home, Settings, Plus, Image as ImageIcon, Package, Check, Trash2, ArrowRight, Diamond, Database, RefreshCw, AlertTriangle, X, Sparkles, Save, Percent, Search, Receipt, Lock, Camera, Wand2 } from 'lucide-react';
+import { ShoppingCart, Home, Settings, Plus, Image as ImageIcon, Package, Check, Trash2, ArrowRight, Diamond, Database, RefreshCw, AlertTriangle, X, Sparkles, Save, Percent, Search, Receipt, Lock, Camera, Wand2, Cloud, Table } from 'lucide-react';
 
 // --- FUNGSI KEAMANAN ENKRIPSI SANDI (SHA-256) ---
 const hashPassword = async (password) => {
@@ -22,7 +22,14 @@ const initialProducts = [
 ];
 
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycby7ACCocOywxV3Cx0QEbk2B6Axz7HptgX4zMmi3ApTdcsBxysch0K8xaKkUBgjBkNdtaQ/exec";
-const DEFAULT_SETTINGS = { fee_percent: 0.05, ongkir_flat: 5000, min_free_ongkir: 3, admin_password_hash: DEFAULT_HASH };
+const DEFAULT_SETTINGS = { 
+  fee_percent: 0.05, 
+  ongkir_flat: 5000, 
+  min_free_ongkir: 3, 
+  admin_password_hash: DEFAULT_HASH,
+  sheet_url: 'https://docs.google.com/spreadsheets/d/1C4EfIpC-uCRGDfDOdm0pDG92SJDqQ_AeEGJB7HrMUJo/edit?gid=50998068#gid=50998068',
+  drive_url: 'https://drive.google.com/drive/folders/1pYE8Jv_U9neNLwxvwDTNkRJPHgbUaPYE?hl=ID'
+};
 
 export default function App() {
   // STATE NAVIGASI
@@ -50,6 +57,7 @@ export default function App() {
       parsed.admin_password_hash = DEFAULT_HASH;
       delete parsed.admin_password;
     }
+    // Gabungkan dengan default agar sheet_url & drive_url ter-cover jika belum ada
     return { ...DEFAULT_SETTINGS, ...parsed };
   });
 
@@ -68,6 +76,8 @@ export default function App() {
   const [passwordInput, setPasswordInput] = useState('');
   
   const [tempApiUrl, setTempApiUrl] = useState(apiUrl);
+  const [tempSheetUrl, setTempSheetUrl] = useState(settings.sheet_url);
+  const [tempDriveUrl, setTempDriveUrl] = useState(settings.drive_url || '');
   const [tempFeePct, setTempFeePct] = useState(settings.fee_percent * 100);
   const [tempOngkir, setTempOngkir] = useState(settings.ongkir_flat);
   const [tempMinFree, setTempMinFree] = useState(settings.min_free_ongkir);
@@ -276,7 +286,7 @@ export default function App() {
       setOrders([newOrder, ...orders]);
 
       // 2. Kirim otomatis ke Database API GAS (Jika ada URL API)
-      if (apiUrl && apiUrl !== DEFAULT_API_URL) {
+      if (apiUrl && apiUrl !== DEFAULT_API_URL && apiUrl !== "") {
         fetch(apiUrl, {
           method: 'POST',
           body: JSON.stringify({ action: 'addOrder', payload: newOrder })
@@ -438,14 +448,17 @@ export default function App() {
       }
 
       const newSettings = { 
+        ...settings,
         fee_percent: Number(tempFeePct) / 100, 
         ongkir_flat: Number(tempOngkir),
         min_free_ongkir: Number(tempMinFree),
-        admin_password_hash: newHash
+        admin_password_hash: newHash,
+        sheet_url: tempSheetUrl,
+        drive_url: tempDriveUrl
       };
       setSettings(newSettings);
       setTempAdminPwd('');
-      alert('Pengaturan Sistem, Sandi & Biaya berhasil disimpan!');
+      alert('Pengaturan Sistem, Database & Biaya berhasil disimpan secara lokal!');
     };
 
     if (!isAdminLoggedIn) {
@@ -526,7 +539,7 @@ export default function App() {
                 <Trash2 size={14} /> Kosongkan Riwayat & Statistik
             </button>
 
-            <h3 className="font-serif text-white text-sm tracking-widest uppercase mt-6 mb-4 border-b border-white/5 pb-2">Riwayat Pesanan</h3>
+            <h3 className="font-serif text-white text-sm tracking-widest uppercase mt-6 mb-4 border-b border-white/5 pb-2">Riwayat Pesanan (Lokal)</h3>
             <div className="space-y-4">
               {orders.length === 0 && <p className="text-xs text-zinc-500 text-center py-6">Belum ada pesanan masuk.</p>}
               {orders.map(order => (
@@ -615,6 +628,7 @@ export default function App() {
           <div className="space-y-6 animate-in slide-in-from-right-4">
              <div className="bg-zinc-900/60 backdrop-blur-md border border-white/5 p-6 rounded-3xl shadow-xl">
                 
+                {/* Keamanan */}
                 <div className="flex items-center gap-3 mb-4 border-b border-white/10 pb-3">
                   <Lock size={18} className="text-amber-400"/>
                   <h3 className="font-serif text-white text-sm tracking-widest uppercase">Keamanan Sandi</h3>
@@ -630,17 +644,48 @@ export default function App() {
                   />
                 </div>
 
+                {/* Database API */}
                 <div className="flex items-center gap-3 mb-4 border-b border-white/10 pb-3 mt-4">
-                  <Database size={18} className="text-amber-400"/>
-                  <h3 className="font-serif text-white text-sm tracking-widest uppercase">Database API Google</h3>
+                  <Table size={18} className="text-amber-400"/>
+                  <h3 className="font-serif text-white text-sm tracking-widest uppercase">Database Spreadsheet</h3>
                 </div>
-                <textarea 
-                  value={tempApiUrl} 
-                  onChange={e => setTempApiUrl(e.target.value)}
-                  placeholder="https://script.google.com/macros/s/..."
-                  className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl mb-6 focus:outline-none focus:border-amber-400 text-xs font-mono h-20 resize-none break-all"
-                />
+                <div className="mb-4">
+                  <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Link Spreadsheet (Penyimpanan Utama)</label>
+                  <textarea 
+                    value={tempSheetUrl} 
+                    onChange={e => setTempSheetUrl(e.target.value)}
+                    placeholder="https://docs.google.com/spreadsheets/..."
+                    className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:outline-none focus:border-amber-400 text-xs font-mono h-16 resize-none break-all text-zinc-400"
+                  />
+                </div>
+                <div className="mb-6">
+                  <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">URL API Script (Jembatan Komunikasi)</label>
+                  <input 
+                    type="text"
+                    value={tempApiUrl} 
+                    onChange={e => setTempApiUrl(e.target.value)}
+                    placeholder="https://script.google.com/macros/s/.../exec"
+                    className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:outline-none focus:border-amber-400 text-xs font-mono"
+                  />
+                </div>
 
+                {/* Drive */}
+                <div className="flex items-center gap-3 mb-4 border-b border-white/10 pb-3 mt-4">
+                  <Cloud size={18} className="text-amber-400"/>
+                  <h3 className="font-serif text-white text-sm tracking-widest uppercase">Penyimpanan Drive (Foto)</h3>
+                </div>
+                <div className="mb-6">
+                  <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Link Folder / ID Folder Google Drive</label>
+                  <input 
+                    type="text"
+                    value={tempDriveUrl} 
+                    onChange={e => setTempDriveUrl(e.target.value)}
+                    placeholder="Contoh: 1A2b3C4d5E6f7G..."
+                    className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:outline-none focus:border-amber-400 text-xs font-mono"
+                  />
+                </div>
+
+                {/* Biaya */}
                 <div className="flex items-center gap-3 mb-4 border-b border-white/10 pb-3 mt-4">
                   <Percent size={18} className="text-amber-400"/>
                   <h3 className="font-serif text-white text-sm tracking-widest uppercase">Pengaturan Biaya & Promo</h3>
@@ -672,9 +717,10 @@ export default function App() {
                   <Save size={16}/> Simpan Semua Pengaturan
                 </button>
              </div>
-
+             
+             {/* Action Buttons */}
              <div className="grid grid-cols-2 gap-4">
-                <button onClick={() => alert("Fitur sinkronisasi memerlukan script Backend GAS yang aktif.")} className="bg-zinc-900/60 border border-white/5 p-5 rounded-3xl flex flex-col items-center justify-center gap-3 hover:border-amber-400/50 hover:bg-zinc-800 transition-all">
+                <button onClick={() => alert("Fitur sinkronisasi memerlukan script Backend GAS (URL API Script) yang aktif.")} className="bg-zinc-900/60 border border-white/5 p-5 rounded-3xl flex flex-col items-center justify-center gap-3 hover:border-amber-400/50 hover:bg-zinc-800 transition-all">
                   <RefreshCw size={24} className="text-amber-400"/>
                   <span className="text-[10px] text-white tracking-widest uppercase font-bold text-center">Tarik Data GAS</span>
                 </button>
@@ -727,7 +773,7 @@ export default function App() {
       
       setIsGeneratingAI(true);
       
-      if (apiUrl && apiUrl !== DEFAULT_API_URL) {
+      if (apiUrl && apiUrl !== DEFAULT_API_URL && apiUrl !== "") {
         try {
           const res = await fetch(apiUrl, {
             method: 'POST',
@@ -775,7 +821,7 @@ export default function App() {
       setNewProduct({ name: '', price_modal: '', price_sell: '', image: '', category: '', status: 'Ready' });
       setImagePreview('');
       
-      alert("Barang & Foto berhasil disimpan ke perangkat (Aman dari Blank Page)!\n\nUntuk menyimpannya langsung ke link Google Drive, pastikan script API Backend Anda telah mendukung upload gambar.");
+      alert("Barang & Foto berhasil disimpan ke perangkat (Aman dari Blank Page)!\n\nUntuk menyimpannya langsung ke link Google Drive secara otomatis, pastikan script API Backend Anda telah mendukung upload gambar base64.");
     };
 
     return (
