@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { ShoppingCart, Home, Settings, Plus, Image as ImageIcon, Package, Check, Trash2, ArrowRight, Diamond, Database, RefreshCw, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { ShoppingCart, Home, Settings, Plus, Image as ImageIcon, Package, Check, Trash2, ArrowRight, Diamond, Database, RefreshCw, AlertTriangle, X, Sparkles, Save, Percent, Truck } from 'lucide-react';
 
-// --- MOCK DATA PREVIEW (Sebagai cadangan jika API belum terhubung) ---
+// --- MOCK DATA PREVIEW (Sebagai default jika belum ada data sama sekali) ---
 const initialProducts = [
   { id: '1', name: 'Tas Chanel Classic Flap', price_modal: 85000000, price_sell: 87500000, stock: 2, category: 'Tas Mewah', image: 'https://images.unsplash.com/photo-1584916201218-f4242ceb4809?auto=format&fit=crop&w=500&q=80' },
   { id: '2', name: 'Jam Tangan Rolex Submariner', price_modal: 150000000, price_sell: 155000000, stock: 1, category: 'Jam Tangan', image: 'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?auto=format&fit=crop&w=500&q=80' },
@@ -17,22 +17,44 @@ const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycby7ACCocOywxV3C
 
 export default function App() {
   const [view, setView] = useState('shop');
-  const [products, setProducts] = useState(initialProducts);
-  const [cart, setCart] = useState([]);
   const [orders, setOrders] = useState(mockOrders);
-  const [settings, setSettings] = useState({ fee_percent: 0.05, ongkir_flat: 5000 });
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   
-  // State Baru untuk Sistem & Sinkronisasi
+  // ==========================================
+  // STATE PENYIMPANAN LOKAL & PENGATURAN
+  // ==========================================
   const [apiUrl, setApiUrl] = useState(() => localStorage.getItem('jastip_api_url') || DEFAULT_API_URL);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Ambil Data Produk dari LocalStorage agar tersimpan permanen saat refresh
+  const [products, setProducts] = useState(() => {
+    const localData = localStorage.getItem('jastip_products');
+    return localData ? JSON.parse(localData) : initialProducts;
+  });
+
+  // Ambil Data Pengaturan Biaya dari LocalStorage
+  const [settings, setSettings] = useState(() => {
+    const localSettings = localStorage.getItem('jastip_settings');
+    return localSettings ? JSON.parse(localSettings) : { fee_percent: 0.05, ongkir_flat: 5000 };
+  });
+
+  // Ambil Keranjang
+  const [cart, setCart] = useState(() => {
+    const savedCart = localStorage.getItem('jastip_cart_premium');
+    return savedCart ? JSON.parse(savedCart) : [];
+  });
+
+  // Simpan perubahan ke LocalStorage otomatis
+  useEffect(() => { localStorage.setItem('jastip_products', JSON.stringify(products)); }, [products]);
+  useEffect(() => { localStorage.setItem('jastip_settings', JSON.stringify(settings)); }, [settings]);
+  useEffect(() => { localStorage.setItem('jastip_cart_premium', JSON.stringify(cart)); }, [cart]);
   
   // State untuk Modal Tambah Barang
   const [showAddModal, setShowAddModal] = useState(false);
   const [newProduct, setNewProduct] = useState({ name: '', price_modal: '', price_sell: '', image: '', category: '' });
 
   // ==========================================
-  // FUNGSI SINKRONISASI DATA (MANUAL & OTOMATIS)
+  // FUNGSI SINKRONISASI DATA KE GAS
   // ==========================================
   const syncDataFromGAS = useCallback(async (isManual = false) => {
     if (!apiUrl || apiUrl === DEFAULT_API_URL) {
@@ -63,34 +85,28 @@ export default function App() {
     }
   }, [apiUrl]);
 
-  // Auto-sync saat aplikasi pertama kali dibuka (jika URL valid)
-  useEffect(() => {
-    syncDataFromGAS(false);
-  }, [syncDataFromGAS]);
-
   // ==========================================
-  // MANAJEMEN PENYIMPANAN LOKAL (LOCALSTORAGE)
+  // FUNGSI MANAJEMEN BARANG
   // ==========================================
-  useEffect(() => {
-    const savedCart = localStorage.getItem('jastip_cart_premium');
-    if (savedCart) setCart(JSON.parse(savedCart));
-  }, []);
+  const handleDeleteProduct = (id) => {
+    if(window.confirm('Apakah Anda yakin ingin menghapus barang ini dari toko?')) {
+      setProducts(products.filter(p => p.id !== id));
+      // Hapus juga dari keranjang jika ada
+      setCart(cart.filter(item => item.id !== id));
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('jastip_cart_premium', JSON.stringify(cart));
-  }, [cart]);
-
-  // Fungsi Reset Keseluruhan
   const handleResetSystem = () => {
-    const confirm = window.confirm("PERINGATAN: Ini akan mereset URL Database, menghapus keranjang, dan mengeluarkan Anda dari Panel Eksekutif. Lanjutkan?");
+    const confirm = window.confirm("PERINGATAN: Ini akan menghapus Keranjang, Data Produk Lokal, Pengaturan Biaya, dan mengeluarkan Anda dari Panel Eksekutif. Lanjutkan?");
     if (confirm) {
-      localStorage.removeItem('jastip_cart_premium');
-      localStorage.removeItem('jastip_api_url');
+      localStorage.clear();
       setCart([]);
+      setProducts(initialProducts);
+      setSettings({ fee_percent: 0.05, ongkir_flat: 5000 });
       setApiUrl(DEFAULT_API_URL);
       setIsAdminLoggedIn(false);
       setView('shop');
-      alert("Sistem berhasil direset ke pengaturan pabrik.");
+      alert("Sistem berhasil direset ke pengaturan awal.");
     }
   };
 
@@ -145,6 +161,10 @@ export default function App() {
         <p className="text-xs text-zinc-400 tracking-widest mt-2 uppercase">Jasa Titip Eksklusif</p>
       </div>
       
+      {products.length === 0 && (
+        <div className="text-center text-zinc-500 py-10">Belum ada barang di toko. Silakan tambah via Admin.</div>
+      )}
+
       <div className="flex flex-col gap-6">
         {products.map(product => (
           <div key={product.id} className="bg-zinc-900/50 backdrop-blur-md border border-white/5 rounded-3xl overflow-hidden shadow-2xl group">
@@ -176,8 +196,11 @@ export default function App() {
   // --- HALAMAN PEMBELI: KERANJANG ---
   const CartView = () => {
     const subtotalSell = cart.reduce((sum, item) => sum + (Number(item.price_sell) * item.qty), 0);
-    const feeJastip = subtotalSell * settings.fee_percent;
-    const total = subtotalSell + feeJastip + (cart.length > 0 ? settings.ongkir_flat : 0);
+    // Perhitungan Ongkir Berdasarkan Pengaturan
+    const feeJastip = subtotalSell * Number(settings.fee_percent);
+    const ongkir = cart.length > 0 ? Number(settings.ongkir_flat) : 0;
+    const total = subtotalSell + feeJastip + ongkir;
+    
     const [showCheckout, setShowCheckout] = useState(false);
     const [buyerName, setBuyerName] = useState('');
 
@@ -190,13 +213,12 @@ export default function App() {
       });
       message += `\nSubtotal: Rp ${subtotalSell.toLocaleString('id-ID')}`;
       message += `\nBiaya Jasa (${settings.fee_percent * 100}%): Rp ${feeJastip.toLocaleString('id-ID')}`;
-      message += `\nOngkos Kirim: Rp ${settings.ongkir_flat.toLocaleString('id-ID')}`;
+      message += `\nOngkos Kirim: Rp ${ongkir.toLocaleString('id-ID')}`;
       message += `\n\n*TOTAL TAGIHAN: Rp ${total.toLocaleString('id-ID')}*`;
       
       const waLink = `https://wa.me/6281234567890?text=${encodeURIComponent(message)}`;
       window.open(waLink, '_blank');
       setCart([]); 
-      localStorage.removeItem('jastip_cart_premium');
     };
 
     if (cart.length === 0) return (
@@ -231,8 +253,8 @@ export default function App() {
             <div className="bg-zinc-900/80 backdrop-blur-xl border border-white/10 p-6 rounded-3xl space-y-3">
               <h3 className="text-white font-serif tracking-widest uppercase text-xs mb-4 border-b border-white/10 pb-2">Ringkasan Pesanan</h3>
               <div className="flex justify-between text-zinc-400 text-xs tracking-wider"><span>Subtotal</span> <span>Rp {subtotalSell.toLocaleString('id-ID')}</span></div>
-              <div className="flex justify-between text-zinc-400 text-xs tracking-wider"><span>Biaya Jasa</span> <span>Rp {feeJastip.toLocaleString('id-ID')}</span></div>
-              <div className="flex justify-between text-zinc-400 text-xs tracking-wider"><span>Ongkos Kirim</span> <span>Rp {settings.ongkir_flat.toLocaleString('id-ID')}</span></div>
+              <div className="flex justify-between text-zinc-400 text-xs tracking-wider"><span>Biaya Jasa ({(settings.fee_percent * 100).toFixed(0)}%)</span> <span>Rp {feeJastip.toLocaleString('id-ID')}</span></div>
+              <div className="flex justify-between text-zinc-400 text-xs tracking-wider"><span>Ongkos Kirim</span> <span>Rp {ongkir.toLocaleString('id-ID')}</span></div>
               
               <div className="w-full h-px bg-white/10 my-4"></div>
               
@@ -282,7 +304,11 @@ export default function App() {
   const AdminView = () => {
     const [adminTab, setAdminTab] = useState('analytics'); // analytics, products, system
     const [passwordInput, setPasswordInput] = useState('');
+    
+    // State sementara untuk Form Sistem
     const [tempApiUrl, setTempApiUrl] = useState(apiUrl);
+    const [tempFeePct, setTempFeePct] = useState(settings.fee_percent * 100);
+    const [tempOngkir, setTempOngkir] = useState(settings.ongkir_flat);
 
     const handleAdminLogin = () => {
       if (passwordInput === 'admin123') { 
@@ -293,10 +319,19 @@ export default function App() {
       }
     };
 
-    const saveApiUrl = () => {
+    const handleSaveSystemSettings = () => {
+      // Simpan URL API
       localStorage.setItem('jastip_api_url', tempApiUrl);
       setApiUrl(tempApiUrl);
-      alert('URL API berhasil disimpan! Silakan klik Sinkronisasi untuk mengambil data.');
+      
+      // Simpan Pengaturan Jastip
+      const newSettings = {
+        fee_percent: Number(tempFeePct) / 100,
+        ongkir_flat: Number(tempOngkir)
+      };
+      setSettings(newSettings);
+      
+      alert('Pengaturan Sistem & Biaya berhasil disimpan!');
     };
 
     if (!isAdminLoggedIn) {
@@ -392,7 +427,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 2: INVENTORY */}
+        {/* TAB 2: INVENTORY (Dengan Fitur Hapus) */}
         {adminTab === 'products' && (
           <div className="animate-in slide-in-from-right-4">
              <button 
@@ -403,8 +438,9 @@ export default function App() {
             </button>
             
             <div className="space-y-4">
+              {products.length === 0 && <p className="text-center text-zinc-600 text-sm py-4">Inventaris kosong.</p>}
               {products.map(product => (
-                <div key={product.id} className="bg-zinc-900/60 backdrop-blur-md border border-white/5 p-4 rounded-3xl flex gap-4">
+                <div key={product.id} className="bg-zinc-900/60 backdrop-blur-md border border-white/5 p-4 rounded-3xl flex gap-4 relative pr-12">
                   <img src={product.image || 'https://via.placeholder.com/150'} alt={product.name} className="w-20 h-20 object-cover rounded-2xl bg-zinc-800" />
                   <div className="flex-1 pt-1">
                     <h4 className="font-serif text-white text-sm mb-3 line-clamp-1">{product.name}</h4>
@@ -419,32 +455,74 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+                  {/* Tombol Hapus Barang */}
+                  <button 
+                    onClick={() => handleDeleteProduct(product.id)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-red-950/40 text-red-400 rounded-xl hover:bg-red-900 hover:text-red-300 transition-colors border border-red-500/20"
+                    title="Hapus Barang"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* TAB 3: SYSTEM (BARU) */}
+        {/* TAB 3: SYSTEM (DENGAN PENGATURAN FEE & ONGKIR) */}
         {adminTab === 'system' && (
           <div className="space-y-6 animate-in slide-in-from-right-4">
              <div className="bg-zinc-900/60 backdrop-blur-md border border-white/5 p-6 rounded-3xl">
+                
+                {/* Bagian API */}
                 <div className="flex items-center gap-3 mb-4 border-b border-white/10 pb-3">
                   <Database size={18} className="text-amber-400"/>
-                  <h3 className="font-serif text-white text-sm tracking-widest uppercase">Database Koneksi</h3>
+                  <h3 className="font-serif text-white text-sm tracking-widest uppercase">Database API</h3>
                 </div>
-                <p className="text-xs text-zinc-400 mb-4 leading-relaxed">Masukkan URL Web App dari Google Apps Script untuk menghubungkan aplikasi dengan Spreadsheet Anda.</p>
                 <textarea 
                   value={tempApiUrl} 
                   onChange={e => setTempApiUrl(e.target.value)}
                   placeholder="https://script.google.com/macros/s/..."
-                  className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl mb-4 focus:outline-none focus:border-amber-400 text-xs font-mono h-20 resize-none break-all"
+                  className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl mb-6 focus:outline-none focus:border-amber-400 text-xs font-mono h-20 resize-none break-all"
                 />
+
+                {/* Bagian Perhitungan Biaya */}
+                <div className="flex items-center gap-3 mb-4 border-b border-white/10 pb-3 mt-4">
+                  <Percent size={18} className="text-amber-400"/>
+                  <h3 className="font-serif text-white text-sm tracking-widest uppercase">Pengaturan Biaya</h3>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Fee Jastip (%)</label>
+                    <div className="relative">
+                      <input 
+                        type="number" 
+                        value={tempFeePct} 
+                        onChange={e => setTempFeePct(e.target.value)}
+                        className="w-full bg-black/50 border border-white/10 text-white p-3 pr-8 rounded-xl focus:border-amber-400 text-sm" 
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500">%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Ongkir Flat (Rp)</label>
+                    <div className="relative">
+                      <input 
+                        type="number" 
+                        value={tempOngkir} 
+                        onChange={e => setTempOngkir(e.target.value)}
+                        className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:border-amber-400 text-sm" 
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <button 
-                  onClick={saveApiUrl}
-                  className="w-full bg-white text-black font-bold py-3 rounded-xl uppercase tracking-widest text-xs hover:bg-amber-400 transition-all"
+                  onClick={handleSaveSystemSettings}
+                  className="w-full bg-white text-black font-bold py-3.5 rounded-xl uppercase tracking-widest text-xs hover:bg-amber-400 transition-all flex items-center justify-center gap-2"
                 >
-                  Simpan URL API
+                  <Save size={16}/> Simpan Semua Pengaturan
                 </button>
              </div>
 
@@ -456,7 +534,7 @@ export default function App() {
                 >
                   <RefreshCw size={24} className={`text-amber-400 ${isSyncing ? 'animate-spin' : ''}`}/>
                   <span className="text-[10px] text-white tracking-widest uppercase font-bold text-center">
-                    {isSyncing ? 'Proses...' : 'Sinkronkan Data'}
+                    {isSyncing ? 'Proses...' : 'Sinkronkan GAS'}
                   </span>
                 </button>
 
@@ -466,7 +544,7 @@ export default function App() {
                 >
                   <AlertTriangle size={24} className="text-red-400"/>
                   <span className="text-[10px] text-red-200 tracking-widest uppercase font-bold text-center">
-                    Reset Keseluruhan
+                    Reset Pabrik
                   </span>
                 </button>
              </div>
@@ -476,41 +554,42 @@ export default function App() {
     );
   };
 
-  // --- MODAL TAMBAH BARANG (BARU) ---
+  // --- MODAL TAMBAH BARANG (Permanen Lokal) ---
   const AddProductModal = () => {
     if (!showAddModal) return null;
 
-    const handleAddSimulated = () => {
+    const handleAddProduct = () => {
       if(!newProduct.name || !newProduct.price_sell) return alert('Nama dan Harga Jual wajib diisi!');
       
       const productToAdd = {
-        id: new Date().getTime().toString(),
+        id: "LOKAL-" + new Date().getTime().toString(),
         name: newProduct.name,
         price_modal: Number(newProduct.price_modal) || 0,
         price_sell: Number(newProduct.price_sell) || 0,
         stock: 1,
         category: newProduct.category || 'Lainnya',
-        image: newProduct.image || 'https://via.placeholder.com/500x300?text=Barang+Baru'
+        image: newProduct.image || 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=500&q=80' // Placeholder elegan
       };
 
+      // Simpan ke state (otomatis masuk localStorage)
       setProducts([productToAdd, ...products]);
       setShowAddModal(false);
       setNewProduct({ name: '', price_modal: '', price_sell: '', image: '', category: '' });
-      alert("Simulasi berhasil! (Catatan: Untuk menyimpan permanen, harap tambahkan juga ke Google Sheets Anda).");
+      alert("Barang berhasil ditambahkan ke toko secara permanen!");
     };
 
     return (
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in">
         <div className="bg-[#111] border border-white/10 w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
           <div className="flex justify-between items-center p-5 border-b border-white/5 bg-zinc-900/50">
-            <h3 className="font-serif text-white tracking-widest uppercase text-sm">Tambah Barang</h3>
+            <h3 className="font-serif text-white tracking-widest uppercase text-sm">Tambah Barang Baru</h3>
             <button onClick={() => setShowAddModal(false)} className="text-zinc-500 hover:text-white"><X size={20}/></button>
           </div>
           
           <div className="p-5 overflow-y-auto flex-1 space-y-4 custom-scrollbar">
             <div>
               <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Nama Barang</label>
-              <input type="text" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:border-amber-400 text-sm" placeholder="Tas Balenciaga..." />
+              <input type="text" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:border-amber-400 text-sm" placeholder="Contoh: Sepatu Nike..." />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -524,16 +603,16 @@ export default function App() {
             </div>
             <div>
               <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Kategori</label>
-              <input type="text" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})} className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:border-amber-400 text-sm" placeholder="Fashion / Tas" />
+              <input type="text" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})} className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:border-amber-400 text-sm" placeholder="Contoh: Sepatu" />
             </div>
             <div>
-              <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">URL Foto (Google Drive)</label>
+              <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">URL Foto (Drive / Web)</label>
               <input type="text" value={newProduct.image} onChange={e => setNewProduct({...newProduct, image: e.target.value})} className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:border-amber-400 text-sm text-zinc-400" placeholder="https://..." />
             </div>
           </div>
 
           <div className="p-5 border-t border-white/5 bg-zinc-900/50">
-             <button onClick={handleAddSimulated} className="w-full bg-amber-500 text-black font-bold py-3.5 rounded-xl uppercase tracking-widest text-xs hover:bg-amber-400 transition-all flex justify-center items-center gap-2">
+             <button onClick={handleAddProduct} className="w-full bg-amber-500 text-black font-bold py-3.5 rounded-xl uppercase tracking-widest text-xs hover:bg-amber-400 transition-all flex justify-center items-center gap-2">
                 Simpan Ke Toko <Sparkles size={16}/>
              </button>
           </div>
