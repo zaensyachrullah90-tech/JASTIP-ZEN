@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ShoppingCart, Home, Settings, Plus, Image as ImageIcon, Package, Check, Trash2, ArrowRight, Diamond, Database, RefreshCw, AlertTriangle, X, Sparkles, Save, Percent, Search, Receipt, Lock, Camera, Wand2 } from 'lucide-react';
 
 // --- FUNGSI KEAMANAN ENKRIPSI SANDI (SHA-256) ---
-// Membuat sandi tidak bisa dilihat di Inspect Element
 const hashPassword = async (password) => {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
@@ -16,10 +15,10 @@ const DEFAULT_HASH = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74
 
 // --- MOCK DATA ---
 const initialProducts = [
-  { id: '1', name: 'Tas Chanel Classic Flap', price_modal: 85000000, price_sell: 87500000, stock: 2, sold: 12, category: 'Tas Mewah', image: 'https://images.unsplash.com/photo-1584916201218-f4242ceb4809?auto=format&fit=crop&w=500&q=80' },
-  { id: '2', name: 'Jam Tangan Rolex Submariner', price_modal: 150000000, price_sell: 155000000, stock: 1, sold: 3, category: 'Jam Tangan', image: 'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?auto=format&fit=crop&w=500&q=80' },
-  { id: '3', name: 'Parfum Dior Sauvage', price_modal: 2500000, price_sell: 2800000, stock: 5, sold: 25, category: 'Parfum', image: 'https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&w=500&q=80' },
-  { id: '4', name: 'Kacamata Gucci Oversized', price_modal: 4000000, price_sell: 4500000, stock: 3, sold: 0, category: 'Aksesoris', image: 'https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=500&q=80' },
+  { id: '1', name: 'Tas Chanel Classic Flap', price_modal: 85000000, price_sell: 87500000, stock: 2, sold: 12, category: 'Tas Mewah', status: 'Ready', image: 'https://images.unsplash.com/photo-1584916201218-f4242ceb4809?auto=format&fit=crop&w=500&q=80' },
+  { id: '2', name: 'Jam Tangan Rolex Submariner', price_modal: 150000000, price_sell: 155000000, stock: 1, sold: 3, category: 'Jam Tangan', status: 'Ready', image: 'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?auto=format&fit=crop&w=500&q=80' },
+  { id: '3', name: 'Parfum Dior Sauvage', price_modal: 2500000, price_sell: 2800000, stock: 5, sold: 25, category: 'Parfum', status: 'PO', image: 'https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&w=500&q=80' },
+  { id: '4', name: 'Kacamata Gucci Oversized', price_modal: 4000000, price_sell: 4500000, stock: 3, sold: 0, category: 'Aksesoris', status: 'PO', image: 'https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=500&q=80' },
 ];
 
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycby7ACCocOywxV3Cx0QEbk2B6Axz7HptgX4zMmi3ApTdcsBxysch0K8xaKkUBgjBkNdtaQ/exec";
@@ -47,7 +46,6 @@ export default function App() {
   const [settings, setSettings] = useState(() => {
     const localSettings = localStorage.getItem('jastip_settings');
     let parsed = localSettings ? JSON.parse(localSettings) : DEFAULT_SETTINGS;
-    // Migrasi keamanan: Ganti password plain text lama ke sistem Hash
     if (parsed.admin_password) {
       parsed.admin_password_hash = DEFAULT_HASH;
       delete parsed.admin_password;
@@ -60,10 +58,8 @@ export default function App() {
     return savedCart ? JSON.parse(savedCart) : [];
   });
 
-  // STATE HALAMAN TOKO
+  // STATE HALAMAN TOKO & KERANJANG
   const [searchQuery, setSearchQuery] = useState('');
-
-  // STATE HALAMAN KERANJANG
   const [showCheckout, setShowCheckout] = useState(false);
   const [buyerName, setBuyerName] = useState('');
 
@@ -81,7 +77,7 @@ export default function App() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [imagePreview, setImagePreview] = useState('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [newProduct, setNewProduct] = useState({ name: '', price_modal: '', price_sell: '', image: '', category: '' });
+  const [newProduct, setNewProduct] = useState({ name: '', price_modal: '', price_sell: '', image: '', category: '', status: 'Ready' });
 
   // AUTOSAVE LOKAL
   useEffect(() => { localStorage.setItem('jastip_products', JSON.stringify(products)); }, [products]);
@@ -93,7 +89,7 @@ export default function App() {
   // FUNGSI UMUM & KERANJANG
   // ==========================================
   const handleDeleteProduct = (id) => {
-    if(window.confirm('Hapus barang ini secara permanen?')) {
+    if(window.confirm('Hapus barang ini secara permanen dari etalase?')) {
       setProducts(products.filter(p => p.id !== id));
       setCart(cart.filter(item => item.id !== id));
     }
@@ -107,8 +103,15 @@ export default function App() {
     }
   };
 
+  const handleClearOrders = () => {
+    if(window.confirm("PERINGATAN: Semua riwayat pesanan (Nota) dan Statistik Keuntungan akan di-reset menjadi NOL. Lanjutkan?")) {
+      setOrders([]);
+      alert("Statistik dan Riwayat Pesanan berhasil dikosongkan.");
+    }
+  };
+
   const handleResetSystem = () => {
-    if (window.confirm("PERINGATAN BAHAYA: Sistem akan direset seperti baru diinstall (Keranjang, Produk, Pesanan, Pengaturan akan dihapus). Lanjutkan?")) {
+    if (window.confirm("PERINGATAN BAHAYA: Sistem akan direset sepenuhnya (Keranjang, Produk, Pesanan, Pengaturan kembali ke pabrik). Lanjutkan?")) {
       localStorage.clear();
       setCart([]);
       setProducts(initialProducts);
@@ -130,8 +133,8 @@ export default function App() {
       return [...prev, { ...product, qty: 1 }];
     });
     const toast = document.createElement('div');
-    toast.className = "fixed top-5 left-1/2 -translate-x-1/2 bg-amber-500 text-black px-6 py-3 rounded-full font-bold text-xs shadow-2xl z-[100] animate-in slide-in-from-top-10 fade-in duration-300";
-    toast.innerText = "Masuk Keranjang!";
+    toast.className = "fixed top-5 left-1/2 -translate-x-1/2 bg-amber-500 text-black px-6 py-3 rounded-full font-bold text-xs shadow-2xl z-[100] animate-in slide-in-from-top-10 fade-in duration-300 flex items-center gap-2";
+    toast.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Masuk Keranjang!`;
     document.body.appendChild(toast);
     setTimeout(() => { toast.classList.add('fade-out', 'slide-out-to-top-10'); setTimeout(() => toast.remove(), 300); }, 2000);
   };
@@ -144,7 +147,7 @@ export default function App() {
       <div className="flex justify-around items-center p-3 pb-5">
         <button onClick={() => setView('shop')} className={`flex flex-col items-center p-2 transition-all duration-300 ${view === 'shop' ? 'text-amber-400 scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}>
           <Diamond size={22} strokeWidth={view === 'shop' ? 2.5 : 2} />
-          <span className="text-[10px] font-medium mt-1 tracking-widest">BUTIK</span>
+          <span className="text-[10px] font-medium mt-1 tracking-widest">PRODUK</span>
         </button>
         <button onClick={() => setView('cart')} className={`flex flex-col items-center p-2 relative transition-all duration-300 ${view === 'cart' ? 'text-amber-400 scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}>
           <ShoppingCart size={22} strokeWidth={view === 'cart' ? 2.5 : 2} />
@@ -177,7 +180,7 @@ export default function App() {
           <h1 className="text-3xl font-serif text-white tracking-widest uppercase flex justify-center items-center gap-2">
             L<Diamond size={20} className="text-amber-400 fill-amber-400/20" />xury <span className="text-amber-400 font-light">Jastip</span>
           </h1>
-          <p className="text-xs text-zinc-400 tracking-widest mt-2 uppercase">Jasa Titip Eksklusif</p>
+          <p className="text-xs text-zinc-400 tracking-widest mt-2 uppercase">Koleksi Jasa Titip Eksklusif</p>
         </div>
         
         <div className="relative mb-8">
@@ -201,6 +204,7 @@ export default function App() {
         <div className="flex flex-col gap-6">
           {filteredProducts.map((product, index) => (
             <div key={product.id} className="bg-zinc-900/50 backdrop-blur-md border border-white/5 rounded-3xl overflow-hidden shadow-2xl group relative">
+              {/* Badge Terlaris */}
               {index === 0 && (product.sold > 0) && searchQuery === '' && (
                 <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-orange-500 text-black px-4 py-1.5 rounded-bl-2xl font-bold text-[10px] tracking-widest uppercase z-10 shadow-lg flex items-center gap-1">
                   <Sparkles size={12}/> Terlaris
@@ -208,15 +212,25 @@ export default function App() {
               )}
               <div className="relative bg-zinc-800">
                 <img src={product.image || 'https://via.placeholder.com/500x300?text=No+Image'} alt={product.name} className="w-full h-64 object-cover opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
-                <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1 rounded-full flex gap-2 items-center shadow-lg">
-                  <span className="text-[10px] text-amber-400 tracking-widest uppercase font-medium">{product.category}</span>
-                  {product.sold > 0 && <span className="text-[9px] text-zinc-400 border-l border-zinc-600 pl-2">Terjual {product.sold}</span>}
+                
+                {/* Badge Kategori & Status (Ready/PO) */}
+                <div className="absolute top-3 left-3 flex gap-2 items-center z-10">
+                  <span className="bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1 rounded-full text-[10px] text-amber-400 tracking-widest uppercase font-medium shadow-lg">
+                    {product.category}
+                  </span>
+                  <span className={`px-2.5 py-1 rounded-full text-[9px] font-bold tracking-widest uppercase shadow-lg ${product.status === 'PO' ? 'bg-orange-500/90 text-white border border-orange-400/50' : 'bg-emerald-500/90 text-white border border-emerald-400/50'}`}>
+                    {product.status === 'PO' ? 'PRE-ORDER' : 'READY'}
+                  </span>
                 </div>
+
               </div>
               <div className="p-5 relative overflow-hidden">
                 <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-500/10 blur-3xl rounded-full pointer-events-none"></div>
-                <h3 className="font-serif text-white text-lg leading-tight mb-2">{product.name}</h3>
+                <h3 className="font-serif text-white text-lg leading-tight mb-2 pr-12">{product.name}</h3>
+                
+                {product.sold > 0 && <p className="text-[10px] text-zinc-500 tracking-widest uppercase mb-1">Terjual {product.sold} Unit</p>}
                 <p className="text-amber-400 font-light tracking-wider text-xl mb-5">Rp {Number(product.price_sell).toLocaleString('id-ID')}</p>
+                
                 <button 
                   onClick={() => addToCart(product)}
                   className="w-full bg-white text-black py-3 rounded-2xl text-xs font-bold tracking-widest uppercase shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] hover:bg-amber-400 transition-all duration-300 flex items-center justify-center gap-2"
@@ -257,8 +271,19 @@ export default function App() {
         grand_total: total,
         status: 'Pesanan Baru'
       };
+      
+      // 1. Simpan ke LocalStorage HP
       setOrders([newOrder, ...orders]);
 
+      // 2. Kirim otomatis ke Database API GAS (Jika ada URL API)
+      if (apiUrl && apiUrl !== DEFAULT_API_URL) {
+        fetch(apiUrl, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'addOrder', payload: newOrder })
+        }).catch(e => console.error("Gagal sinkron nota ke Database API", e));
+      }
+
+      // Update jumlah terjual
       const updatedProducts = products.map(p => {
         const cartItem = cart.find(c => c.id === p.id);
         if (cartItem) return { ...p, sold: (p.sold || 0) + cartItem.qty };
@@ -268,7 +293,7 @@ export default function App() {
 
       let message = `*🧾 STRUK JASTIP PREMIUM*\n======================\nKlien: *${buyerName}*\n\n*RINCIAN PESANAN:*\n`;
       cart.forEach(item => {
-        message += `🔸 ${item.name} (${item.qty}x)\n      Rp ${(Number(item.price_sell) * item.qty).toLocaleString('id-ID')}\n`;
+        message += `🔸 ${item.name} (${item.status === 'PO' ? 'PRE-ORDER' : 'READY'}) x${item.qty}\n      Rp ${(Number(item.price_sell) * item.qty).toLocaleString('id-ID')}\n`;
       });
       message += `\n----------------------\n`;
       message += `Subtotal Barang : Rp ${subtotalSell.toLocaleString('id-ID')}\n`;
@@ -309,14 +334,17 @@ export default function App() {
           <>
             <div className="space-y-4 mb-8">
               {cart.map(item => (
-                <div key={item.id} className="bg-zinc-900/60 backdrop-blur-xl border border-white/5 p-4 rounded-3xl flex gap-4 items-center">
+                <div key={item.id} className="bg-zinc-900/60 backdrop-blur-xl border border-white/5 p-4 rounded-3xl flex gap-4 items-center relative pr-4">
                   <img src={item.image} alt={item.name} className="w-20 h-20 object-cover rounded-2xl" />
                   <div className="flex-1">
                     <h4 className="font-serif text-white text-sm leading-tight">{item.name}</h4>
-                    <p className="text-amber-400 font-light text-xs mt-2 tracking-wider">Rp {Number(item.price_sell).toLocaleString('id-ID')}</p>
-                    <p className="text-zinc-500 text-[10px] mt-1 tracking-widest uppercase">Jml: {item.qty}</p>
+                    <p className="text-amber-400 font-light text-xs mt-1 tracking-wider">Rp {Number(item.price_sell).toLocaleString('id-ID')}</p>
+                    <div className="flex gap-2 items-center mt-2">
+                       <p className="text-zinc-400 text-[10px] tracking-widest uppercase font-bold">Jml: {item.qty}</p>
+                       <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest ${item.status === 'PO' ? 'bg-orange-500/20 text-orange-400' : 'bg-emerald-500/20 text-emerald-400'}`}>{item.status}</span>
+                    </div>
                   </div>
-                  <button onClick={() => removeFromCart(item.id)} className="p-3 text-zinc-500 hover:text-red-400 transition-colors">
+                  <button onClick={() => removeFromCart(item.id)} className="p-2 text-zinc-500 hover:text-red-400 transition-colors">
                     <Trash2 size={18} />
                   </button>
                 </div>
@@ -363,7 +391,7 @@ export default function App() {
                <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-2 border-b border-white/5 pb-2">Rincian Final</p>
                {cart.map(c => (
                  <div key={c.id} className="flex justify-between text-xs text-zinc-300">
-                   <span className="truncate pr-2">{c.qty}x {c.name}</span>
+                   <span className="truncate pr-2">{c.qty}x {c.name} <span className="text-[8px] text-zinc-500">({c.status})</span></span>
                    <span>Rp{(Number(c.price_sell)*c.qty).toLocaleString('id-ID')}</span>
                  </div>
                ))}
@@ -491,7 +519,14 @@ export default function App() {
               </div>
             </div>
 
-            <h3 className="font-serif text-white text-sm tracking-widest uppercase mt-8 mb-4 border-b border-white/5 pb-2">Riwayat Pesanan</h3>
+            <button 
+                onClick={handleClearOrders}
+                className="w-full bg-transparent border border-red-500/30 text-red-400 py-3 rounded-2xl text-[10px] uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-red-500/10 transition-all mt-4"
+            >
+                <Trash2 size={14} /> Kosongkan Riwayat & Statistik
+            </button>
+
+            <h3 className="font-serif text-white text-sm tracking-widest uppercase mt-6 mb-4 border-b border-white/5 pb-2">Riwayat Pesanan</h3>
             <div className="space-y-4">
               {orders.length === 0 && <p className="text-xs text-zinc-500 text-center py-6">Belum ada pesanan masuk.</p>}
               {orders.map(order => (
@@ -523,7 +558,7 @@ export default function App() {
                 onClick={handleClearInventory}
                 className="w-full bg-transparent border border-red-500/30 text-red-400 py-3 rounded-2xl mb-6 text-[10px] uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-red-500/10 transition-all"
               >
-                <Trash2 size={14} /> Kosongkan Inventaris
+                <Trash2 size={14} /> Kosongkan Inventaris Saja
             </button>
             
             <div className="space-y-4">
@@ -542,9 +577,10 @@ export default function App() {
                       <img src={product.image || 'https://via.placeholder.com/150'} alt={product.name} className="w-16 h-16 object-cover rounded-2xl bg-zinc-800" />
                       <div className="flex-1 pt-1">
                         <h4 className="font-serif text-white text-sm mb-1 line-clamp-1">{product.name}</h4>
-                        <span className="text-[9px] bg-white/10 px-2 py-0.5 rounded text-zinc-300 tracking-widest uppercase">
-                          Stok: {product.stock} | Terjual: {terjual}
-                        </span>
+                        <div className="flex gap-2 items-center mb-1">
+                           <span className="text-[9px] bg-white/10 px-2 py-0.5 rounded text-zinc-300 tracking-widest uppercase">Stok: {product.stock} | Terjual: {terjual}</span>
+                           <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest ${product.status === 'PO' ? 'bg-orange-500/20 text-orange-400' : 'bg-emerald-500/20 text-emerald-400'}`}>{product.status}</span>
+                        </div>
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-2 border-t border-white/5 pt-3">
@@ -730,12 +766,13 @@ export default function App() {
         stock: 1,
         sold: 0,
         category: newProduct.category || 'Barang Baru',
+        status: newProduct.status || 'Ready',
         image: newProduct.image || 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=500&q=80' 
       };
 
       setProducts([productToAdd, ...products]);
       setShowAddModal(false);
-      setNewProduct({ name: '', price_modal: '', price_sell: '', image: '', category: '' });
+      setNewProduct({ name: '', price_modal: '', price_sell: '', image: '', category: '', status: 'Ready' });
       setImagePreview('');
       
       alert("Barang & Foto berhasil disimpan ke perangkat (Aman dari Blank Page)!\n\nUntuk menyimpannya langsung ke link Google Drive, pastikan script API Backend Anda telah mendukung upload gambar.");
@@ -789,6 +826,21 @@ export default function App() {
               <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Nama Barang</label>
               <input type="text" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:border-amber-400 text-sm" placeholder="Contoh: Sepatu Nike..." />
             </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Status Barang</label>
+                <select value={newProduct.status} onChange={e => setNewProduct({...newProduct, status: e.target.value})} className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:outline-none focus:border-amber-400 text-sm">
+                  <option value="Ready">Ready Stock</option>
+                  <option value="PO">Pre-Order (PO)</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Kategori</label>
+                <input type="text" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})} className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:border-amber-400 text-sm" placeholder="Contoh: Sepatu" />
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Harga Modal</label>
@@ -799,10 +851,7 @@ export default function App() {
                 <input type="number" value={newProduct.price_sell} onChange={e => setNewProduct({...newProduct, price_sell: e.target.value})} className="w-full bg-black/50 border border-amber-500/30 text-white p-3 rounded-xl focus:border-amber-400 text-sm font-bold" placeholder="150000" />
               </div>
             </div>
-            <div>
-              <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Kategori</label>
-              <input type="text" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})} className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:border-amber-400 text-sm" placeholder="Contoh: Sepatu" />
-            </div>
+            
           </div>
 
           <div className="p-5 border-t border-white/5 bg-zinc-900/50">
