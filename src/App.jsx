@@ -21,14 +21,14 @@ const initialProducts = [
   { id: '4', name: 'Kacamata Gucci Oversized', price_modal: 4000000, price_sell: 4500000, stock: 3, sold: 0, category: 'Aksesoris', status: 'PO', image: 'https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=500&q=80' },
 ];
 
-const DEFAULT_API_URL = "";
+const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbxZeQRz93HE5vrVIy-1lSmjY5pqHwncDGodKtO1k1MgwwxxXnZfBvc92ar1fIo195p5FA/exec";
 const DEFAULT_SETTINGS = { 
   fee_percent: 0.05, 
   ongkir_flat: 5000, 
   min_free_ongkir: 3, 
   admin_password_hash: DEFAULT_HASH,
   sheet_url: 'https://docs.google.com/spreadsheets/d/1C4EfIpC-uCRGDfDOdm0pDG92SJDqQ_AeEGJB7HrMUJo/edit?gid=50998068#gid=50998068',
-  drive_url: ''
+  drive_url: 'https://drive.google.com/drive/folders/1pYE8Jv_U9neNLwxvwDTNkRJPHgbUaPYE?hl=ID'
 };
 
 export default function App() {
@@ -57,6 +57,7 @@ export default function App() {
       parsed.admin_password_hash = DEFAULT_HASH;
       delete parsed.admin_password;
     }
+    // Gabungkan dengan default agar sheet_url & drive_url ter-cover jika belum ada
     return { ...DEFAULT_SETTINGS, ...parsed };
   });
 
@@ -91,7 +92,7 @@ export default function App() {
   // SINKRONISASI DATA API (OTOMATIS & MANUAL)
   // ==========================================
   const syncDataFromGAS = useCallback(async (isManual = false) => {
-    if (!apiUrl || apiUrl === DEFAULT_API_URL || apiUrl === "") {
+    if (!apiUrl || apiUrl === "" || apiUrl === "MASUKKAN_URL_WEB_APP_DISINI") {
       if (isManual) alert("Mohon atur URL API Google Script terlebih dahulu di tab 'SISTEM'!");
       return;
     }
@@ -126,7 +127,7 @@ export default function App() {
 
   // Auto-sync saat aplikasi dibuka
   useEffect(() => {
-    if (apiUrl && apiUrl !== DEFAULT_API_URL && apiUrl !== "") {
+    if (apiUrl && apiUrl !== "" && apiUrl !== "MASUKKAN_URL_WEB_APP_DISINI") {
       syncDataFromGAS();
     }
   }, [apiUrl, syncDataFromGAS]);
@@ -183,6 +184,9 @@ export default function App() {
       setOrders([]);
       setSettings(DEFAULT_SETTINGS);
       setApiUrl(DEFAULT_API_URL);
+      setTempApiUrl(DEFAULT_API_URL);
+      setTempSheetUrl(DEFAULT_SETTINGS.sheet_url);
+      setTempDriveUrl(DEFAULT_SETTINGS.drive_url);
       setIsAdminLoggedIn(false);
       setView('shop');
       alert("Sistem berhasil direset ke pengaturan pabrik.");
