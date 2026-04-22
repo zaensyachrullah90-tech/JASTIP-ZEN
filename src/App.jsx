@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { ShoppingCart, Settings, Plus, Image as ImageIcon, Package, Check, Trash2, ArrowRight, Diamond, Database, RefreshCw, AlertTriangle, X, Sparkles, Save, Percent, Search, Receipt, Lock, Camera, Wand2, Cloud, Table, Download, Phone, Edit2, TrendingUp, Frown, Award, ChevronRight } from 'lucide-react';
+import { ShoppingCart, Settings, Plus, Image as ImageIcon, Package, Check, Trash2, ArrowRight, Diamond, Database, RefreshCw, AlertTriangle, X, Sparkles, Save, Percent, Search, Receipt, Lock, Camera, Wand2, Cloud, Table, Download, Phone, Edit2, TrendingUp, Frown, Award, ChevronRight, ClipboardList } from 'lucide-react';
 
 // --- FUNGSI KEAMANAN ENKRIPSI SANDI (SHA-256) ---
 const hashPassword = async (password) => {
@@ -50,6 +50,12 @@ export default function App() {
     const localOrders = localStorage.getItem('jastip_orders');
     return localOrders ? JSON.parse(localOrders) : [];
   });
+  
+  // Riwayat pesanan pembeli (ID pesanan milik perangkat ini)
+  const [myOrderIds, setMyOrderIds] = useState(() => {
+    const saved = localStorage.getItem('jastip_my_orders');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   const [settings, setSettings] = useState(() => {
     const localSettings = localStorage.getItem('jastip_settings');
@@ -85,6 +91,18 @@ export default function App() {
   const [tempAdminWa, setTempAdminWa] = useState(settings.admin_wa);
   const [tempQrisImage, setTempQrisImage] = useState(settings.qris_image);
 
+  // Update temp state if global settings change from auto-sync
+  useEffect(() => {
+    setTempApiUrl(apiUrl);
+    setTempSheetUrl(settings.sheet_url || '');
+    setTempDriveUrl(settings.drive_url || '');
+    setTempFeePct(settings.fee_percent * 100);
+    setTempOngkir(settings.ongkir_flat);
+    setTempMinFree(settings.min_free_ongkir);
+    setTempAdminWa(settings.admin_wa || '');
+    setTempQrisImage(settings.qris_image || '');
+  }, [settings, apiUrl]);
+
   // STATE CRUD BARANG (CREATE & UPDATE)
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -116,9 +134,14 @@ export default function App() {
       if (!dataSettings.error) {
          setSettings(prev => ({ 
            ...prev, 
-           fee_percent: Number(dataSettings.fee_percent) ?? prev.fee_percent, 
-           ongkir_flat: Number(dataSettings.ongkir_flat) ?? prev.ongkir_flat, 
-           min_free_ongkir: Number(dataSettings.min_free_ongkir) ?? prev.min_free_ongkir 
+           fee_percent: dataSettings.fee_percent !== undefined ? Number(dataSettings.fee_percent) : prev.fee_percent, 
+           ongkir_flat: dataSettings.ongkir_flat !== undefined ? Number(dataSettings.ongkir_flat) : prev.ongkir_flat, 
+           min_free_ongkir: dataSettings.min_free_ongkir !== undefined ? Number(dataSettings.min_free_ongkir) : prev.min_free_ongkir,
+           admin_wa: dataSettings.admin_wa || prev.admin_wa,
+           qris_image: dataSettings.qris_image || prev.qris_image,
+           sheet_url: dataSettings.sheet_url || prev.sheet_url,
+           drive_url: dataSettings.drive_url || prev.drive_url,
+           admin_password_hash: dataSettings.admin_password_hash || prev.admin_password_hash
          }));
       }
       
@@ -150,6 +173,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('jastip_orders', JSON.stringify(orders)); }, [orders]);
   useEffect(() => { localStorage.setItem('jastip_settings', JSON.stringify(settings)); }, [settings]);
   useEffect(() => { localStorage.setItem('jastip_cart_premium', JSON.stringify(cart)); }, [cart]);
+  useEffect(() => { localStorage.setItem('jastip_my_orders', JSON.stringify(myOrderIds)); }, [myOrderIds]);
 
   // ==========================================
   // FUNGSI UMUM, KERANJANG, DAN DB PUSH
@@ -186,6 +210,7 @@ export default function App() {
   const handleClearOrders = () => {
     if(window.confirm("PERINGATAN: Semua riwayat pesanan (Nota) dan Statistik Keuntungan akan di-reset menjadi NOL. Lanjutkan?")) {
       setOrders([]);
+      setMyOrderIds([]);
       if (apiUrl && apiUrl !== "") {
         fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'clearOrders' }) }).catch(console.error);
       }
@@ -199,16 +224,27 @@ export default function App() {
       setCart([]);
       setProducts(initialProducts);
       setOrders([]);
+      setMyOrderIds([]);
       setSettings(DEFAULT_SETTINGS);
       setApiUrl(DEFAULT_API_URL);
-      setTempApiUrl(DEFAULT_API_URL);
-      setTempSheetUrl(DEFAULT_SETTINGS.sheet_url);
-      setTempDriveUrl(DEFAULT_SETTINGS.drive_url);
-      setTempAdminWa(DEFAULT_SETTINGS.admin_wa);
-      setTempQrisImage('');
       setIsAdminLoggedIn(false);
       setView('shop');
       alert("Sistem berhasil direset ke pengaturan pabrik.");
+    }
+  };
+
+  const handleUpdateOrderStatus = (orderId, newStatus) => {
+    let reason = '';
+    if (newStatus === 'Ditolak') {
+      reason = window.prompt("Berikan alasan penolakan pesanan ini:");
+      if (reason === null) return; 
+    }
+
+    const updatedOrders = orders.map(o => o.id === orderId ? { ...o, status: newStatus, reject_reason: reason } : o);
+    setOrders(updatedOrders);
+    
+    if (apiUrl && apiUrl !== "") {
+      fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'updateOrderStatus', id: orderId, status: newStatus, reason: reason }) }).catch(console.error);
     }
   };
 
@@ -220,7 +256,6 @@ export default function App() {
       }
       return [...prev, { ...product, qty: 1 }];
     });
-    // Notifikasi Flat & Bold
     const toast = document.createElement('div');
     toast.className = "fixed top-5 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-xs shadow-md border-2 border-blue-700 z-[100] animate-in slide-in-from-top-10 fade-in duration-200 flex items-center gap-2";
     toast.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Masuk Keranjang!`;
@@ -244,26 +279,30 @@ export default function App() {
     setShowProductModal(true);
   };
 
-  // --- FUNGSI RENDER TAMPILAN BAWAH (FLAT & MODERN) ---
+  // --- FUNGSI RENDER TAMPILAN BAWAH ---
   const renderBottomNav = () => (
     <div className="fixed bottom-0 w-full max-w-md mx-auto bg-white border-t-2 border-slate-100 z-50">
       <div className="flex justify-around items-center p-2 pb-4">
-        <button onClick={() => setView('shop')} className={`flex flex-col items-center p-2 w-full transition-transform active:scale-95 ${view === 'shop' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
+        <button onClick={() => setView('shop')} className={`flex flex-col items-center p-2 w-1/4 transition-transform active:scale-95 ${view === 'shop' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
           <Package size={24} strokeWidth={view === 'shop' ? 3 : 2} />
-          <span className="text-[10px] font-black mt-1 tracking-widest uppercase">PRODUK</span>
+          <span className="text-[9px] font-black mt-1 tracking-widest uppercase">PRODUK</span>
         </button>
-        <button onClick={() => setView('cart')} className={`flex flex-col items-center p-2 w-full relative transition-transform active:scale-95 ${view === 'cart' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
+        <button onClick={() => setView('cart')} className={`flex flex-col items-center p-2 w-1/4 relative transition-transform active:scale-95 ${view === 'cart' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
           <ShoppingCart size={24} strokeWidth={view === 'cart' ? 3 : 2} />
           {cart.length > 0 && (
-            <span className="absolute top-1 right-6 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black border-2 border-white">
+            <span className="absolute top-1 right-3 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black border-2 border-white">
               {cart.reduce((sum, item) => sum + item.qty, 0)}
             </span>
           )}
-          <span className="text-[10px] font-black mt-1 tracking-widest uppercase">KERANJANG</span>
+          <span className="text-[9px] font-black mt-1 tracking-widest uppercase">KERANJANG</span>
         </button>
-        <button onClick={() => setView('admin')} className={`flex flex-col items-center p-2 w-full transition-transform active:scale-95 ${view === 'admin' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
+        <button onClick={() => setView('orders')} className={`flex flex-col items-center p-2 w-1/4 transition-transform active:scale-95 ${view === 'orders' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
+          <ClipboardList size={24} strokeWidth={view === 'orders' ? 3 : 2} />
+          <span className="text-[9px] font-black mt-1 tracking-widest uppercase">PESANAN</span>
+        </button>
+        <button onClick={() => setView('admin')} className={`flex flex-col items-center p-2 w-1/4 transition-transform active:scale-95 ${view === 'admin' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
           <Settings size={24} strokeWidth={view === 'admin' ? 3 : 2} />
-          <span className="text-[10px] font-black mt-1 tracking-widest uppercase">ADMIN</span>
+          <span className="text-[9px] font-black mt-1 tracking-widest uppercase">ADMIN</span>
         </button>
       </div>
     </div>
@@ -284,7 +323,7 @@ export default function App() {
              <Diamond size={24} strokeWidth={3} />
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight flex justify-center items-center gap-1.5 uppercase">
-            JASTIP <span className="text-blue-600">MAKANANMU</span>
+            JASTIP <span className="text-blue-600">PREMIUM</span>
           </h1>
           <p className="text-[10px] text-slate-500 tracking-widest mt-1 uppercase font-bold">Titip Eksklusif & Cepat</p>
         </div>
@@ -293,7 +332,7 @@ export default function App() {
           <Search size={18} strokeWidth={3} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input 
             type="text" 
-            placeholder="Cari makanan khas, ikan asin..." 
+            placeholder="Cari tas, parfum, aksesoris..." 
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 pl-11 pr-4 py-3.5 rounded-2xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-bold transition-colors"
@@ -373,10 +412,13 @@ export default function App() {
         fee: feeJastip,
         ongkir: ongkir,
         grand_total: total,
-        status: 'Pesanan Baru'
+        status: 'Menunggu Konfirmasi',
+        reject_reason: ''
       };
       
+      // Simpan di Pesanan Global & Pesanan Pribadi
       setOrders([newOrder, ...orders]);
+      setMyOrderIds(prev => [...prev, newOrder.id]);
 
       if (apiUrl && apiUrl !== DEFAULT_API_URL && apiUrl !== "") {
         fetch(apiUrl, {
@@ -392,7 +434,7 @@ export default function App() {
       });
       setProducts(updatedProducts);
 
-      let message = `*🧾 STRUK JASTIP PREMIUM*\n======================\nKlien: *${buyerName}*\n\n*RINCIAN PESANAN:*\n`;
+      let message = `*🧾 PESANAN BARU JASTIP*\n*ID:* ${newOrder.id}\n======================\nKlien: *${buyerName}*\n\n*RINCIAN PESANAN:*\n`;
       cart.forEach(item => {
         message += `🔸 ${item.name} (${item.status === 'PO' ? 'PRE-ORDER' : 'READY'}) x${item.qty}\n      Rp ${(Number(item.price_sell) * item.qty).toLocaleString('id-ID')}\n`;
       });
@@ -401,16 +443,18 @@ export default function App() {
       message += `Fee Jasa (${(settings.fee_percent * 100).toFixed(0)}%) : Rp ${feeJastip.toLocaleString('id-ID')}\n`;
       message += `Ongkos Kirim    : ${isFreeOngkir ? '*GRATIS ONGKIR!*' : 'Rp ' + ongkir.toLocaleString('id-ID')}\n`;
       message += `======================\n`;
-      message += `*TOTAL TAGIHAN  : Rp ${total.toLocaleString('id-ID')}*\n======================\n\n_Sistem otomatis, mohon tunggu konfirmasi admin._`;
+      message += `*TOTAL TAGIHAN  : Rp ${total.toLocaleString('id-ID')}*\n======================\n\n_Silakan proses pesanan saya di aplikasi. Terima kasih!_`;
       
-      let cleanWa = settings.admin_wa.replace(/\D/g, '');
+      let cleanWa = settings.admin_wa ? settings.admin_wa.replace(/\D/g, '') : '';
       if(cleanWa.startsWith('0')) cleanWa = '62' + cleanWa.substring(1);
 
       const waLink = `https://wa.me/${cleanWa}?text=${encodeURIComponent(message)}`;
       window.open(waLink, '_blank');
+      
       setCart([]); 
       setShowCheckout(false);
       setBuyerName('');
+      setView('orders'); // Langsung arahkan pembeli ke tab Pesanan
     };
 
     const downloadQRIS = () => {
@@ -553,6 +597,60 @@ export default function App() {
   };
 
   // ==========================================
+  // RENDER: HALAMAN STATUS PESANAN (PEMBELI)
+  // ==========================================
+  const renderOrdersView = () => {
+    const myOrdersList = orders.filter(o => myOrderIds.includes(o.id));
+
+    if (myOrdersList.length === 0) return (
+      <div className="flex flex-col items-center justify-center h-[80vh] text-slate-400 animate-in fade-in duration-300">
+        <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4 border-2 border-slate-200">
+           <ClipboardList size={40} strokeWidth={2.5} className="text-slate-300" />
+        </div>
+        <p className="font-black tracking-widest uppercase text-xs">Belum Ada Pesanan</p>
+      </div>
+    );
+
+    return (
+      <div className="p-5 pb-32 animate-in fade-in duration-300">
+        <h2 className="text-xl font-black text-slate-900 mb-6 tracking-widest uppercase flex items-center gap-2">
+           <ClipboardList size={24} strokeWidth={3} className="text-blue-600"/> STATUS PESANAN
+        </h2>
+        <div className="space-y-4">
+          {myOrdersList.map(order => (
+            <div key={order.id} className="bg-white border-2 border-slate-200 p-5 rounded-2xl flex flex-col gap-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-black text-slate-900 text-sm mb-1">{order.customer}</p>
+                  <p className="text-[9px] text-slate-400 font-bold tracking-widest">{order.id}</p>
+                  <p className="text-blue-600 font-black text-sm mt-1 tracking-wide">Rp {Number(order.grand_total).toLocaleString('id-ID')}</p>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <span className={`text-[9px] uppercase tracking-widest font-black px-3 py-1.5 rounded-xl border-2 ${
+                     order.status === 'Selesai' ? 'bg-emerald-100 text-emerald-600 border-emerald-200' : 
+                     order.status === 'Ditolak' ? 'bg-red-100 text-red-600 border-red-200' :
+                     order.status === 'Diproses' ? 'bg-blue-100 text-blue-600 border-blue-200' :
+                     'bg-orange-100 text-orange-600 border-orange-200'
+                  }`}>
+                    {order.status}
+                  </span>
+                </div>
+              </div>
+              
+              {order.reject_reason && (
+                <div className="bg-red-50 border border-red-200 p-3 rounded-xl mt-2">
+                  <p className="text-[10px] text-red-600 font-black uppercase tracking-widest mb-1">Alasan Penolakan:</p>
+                  <p className="text-xs text-red-800 font-bold">{order.reject_reason}</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // ==========================================
   // RENDER: HALAMAN ADMIN
   // ==========================================
   const renderAdminView = () => {
@@ -593,7 +691,7 @@ export default function App() {
       }
 
       setTempAdminPwd('');
-      alert('Pengaturan Sistem berhasil dikunci!');
+      alert('Pengaturan Sistem berhasil dikunci & disinkron ke Database!');
     };
 
     if (!isAdminLoggedIn) {
@@ -627,13 +725,14 @@ export default function App() {
 
     let revenue = 0, capital = 0, totalFee = 0;
     orders.forEach(order => {
-      revenue += Number(order.total_sell);
-      capital += Number(order.total_modal);
-      totalFee += Number(order.fee);
+      if (order.status !== 'Ditolak') {
+         revenue += Number(order.total_sell);
+         capital += Number(order.total_modal);
+         totalFee += Number(order.fee);
+      }
     });
     const stats = { capital, revenue, profit: (revenue - capital) + totalFee, orders: orders.length };
 
-    // ANALISIS DATA
     const top10Products = [...products].sort((a,b) => (b.sold || 0) - (a.sold || 0)).filter(p => p.sold > 0).slice(0, 10);
     const unsoldProducts = products.filter(p => !p.sold || p.sold === 0);
 
@@ -672,7 +771,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* SEGMEN ANALISIS BARU */}
             <div className="grid grid-cols-2 gap-4">
                <div className="bg-white border-2 border-slate-200 p-4 rounded-2xl">
                   <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center mb-3">
@@ -692,53 +790,45 @@ export default function App() {
 
             <div className="bg-white border-2 border-slate-200 p-5 rounded-2xl">
                <h3 className="font-black text-slate-900 text-xs tracking-widest uppercase mb-4 flex items-center gap-2 border-b-2 border-slate-100 pb-3">
-                 <Award size={18} className="text-orange-500" strokeWidth={3}/> 10 BARANG TERLARIS
+                 <ClipboardList size={18} className="text-blue-600" strokeWidth={3}/> KONFIRMASI PESANAN
                </h3>
-               <div className="space-y-3">
-                 {top10Products.length === 0 && <p className="text-xs font-bold text-slate-400">Belum ada penjualan.</p>}
-                 {top10Products.map((p, i) => (
-                   <div key={p.id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                         <span className="font-black text-slate-300 text-lg w-4">{i+1}</span>
-                         <img src={p.image} className="w-10 h-10 rounded-lg object-cover border-2 border-slate-100 bg-slate-50"/>
-                         <p className="text-xs font-black text-slate-800 line-clamp-1">{p.name}</p>
-                      </div>
-                      <span className="bg-orange-100 text-orange-600 font-black text-[10px] px-2 py-1 rounded-md">{p.sold} x</span>
+               <div className="space-y-4">
+                 {orders.length === 0 && <p className="text-xs font-bold text-slate-400">Belum ada nota transaksi.</p>}
+                 {orders.map(order => (
+                   <div key={order.id} className="bg-slate-50 border-2 border-slate-200 p-4 rounded-2xl flex flex-col gap-3">
+                     <div className="flex justify-between items-start">
+                       <div>
+                         <p className="font-black text-slate-900 text-sm mb-1">{order.customer}</p>
+                         <p className="text-[9px] text-slate-400 font-bold tracking-widest">{order.id}</p>
+                         <p className="text-blue-600 font-black text-sm mt-1 tracking-wide">Rp {Number(order.grand_total).toLocaleString('id-ID')}</p>
+                       </div>
+                       <div className="flex flex-col items-end gap-1">
+                         <span className={`text-[9px] uppercase tracking-widest font-black px-3 py-1.5 rounded-xl border-2 ${
+                            order.status === 'Selesai' ? 'bg-emerald-100 text-emerald-600 border-emerald-200' : 
+                            order.status === 'Ditolak' ? 'bg-red-100 text-red-600 border-red-200' :
+                            order.status === 'Diproses' ? 'bg-blue-100 text-blue-600 border-blue-200' :
+                            'bg-orange-100 text-orange-600 border-orange-200'
+                         }`}>
+                           {order.status}
+                         </span>
+                       </div>
+                     </div>
+                     
+                     {/* ACTION BUTTONS UNTUK STATUS PESANAN */}
+                     {order.status === 'Menunggu Konfirmasi' && (
+                       <div className="flex gap-2 mt-2 pt-3 border-t-2 border-dashed border-slate-200">
+                         <button onClick={() => handleUpdateOrderStatus(order.id, 'Diproses')} className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-[9px] font-black tracking-widest uppercase active:scale-95 transition-transform">Proses Pesanan</button>
+                         <button onClick={() => handleUpdateOrderStatus(order.id, 'Ditolak')} className="flex-1 bg-white border-2 border-red-200 text-red-600 py-2.5 rounded-xl text-[9px] font-black tracking-widest uppercase active:scale-95 transition-transform">Tolak</button>
+                       </div>
+                     )}
+                     {order.status === 'Diproses' && (
+                       <div className="flex gap-2 mt-2 pt-3 border-t-2 border-dashed border-slate-200">
+                         <button onClick={() => handleUpdateOrderStatus(order.id, 'Selesai')} className="w-full bg-emerald-500 text-white py-2.5 rounded-xl text-[9px] font-black tracking-widest uppercase active:scale-95 transition-transform">Tandai Selesai</button>
+                       </div>
+                     )}
                    </div>
                  ))}
                </div>
-            </div>
-
-            <div className="bg-slate-50 border-2 border-slate-200 border-dashed p-5 rounded-2xl">
-               <h3 className="font-black text-slate-600 text-xs tracking-widest uppercase mb-4 flex items-center gap-2">
-                 <AlertTriangle size={18} strokeWidth={3}/> PERLU PERHATIAN (0 TERJUAL)
-               </h3>
-               <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
-                 {unsoldProducts.length === 0 && <p className="text-[10px] font-bold text-emerald-600 bg-emerald-100 p-2 rounded-lg text-center">Bagus! Semua barang pernah terjual.</p>}
-                 {unsoldProducts.map(p => (
-                   <div key={p.id} className="text-xs font-bold text-slate-600 flex justify-between bg-white p-2 rounded-lg border-2 border-slate-100">
-                      <span className="truncate pr-2">{p.name}</span>
-                      <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded-md text-slate-500">S: {p.stock}</span>
-                   </div>
-                 ))}
-               </div>
-            </div>
-
-            <h3 className="font-black text-slate-900 text-xs tracking-widest uppercase mt-8 mb-4 border-b-2 border-slate-200 pb-2">RIWAYAT TRANSAKSI</h3>
-            <div className="space-y-4">
-              {orders.length === 0 && <div className="text-center bg-white border-2 border-slate-200 rounded-2xl py-8"><p className="text-xs font-bold text-slate-400">Belum ada nota transaksi.</p></div>}
-              {orders.map(order => (
-                <div key={order.id} className="bg-white border-2 border-slate-200 p-4 rounded-2xl flex justify-between items-center">
-                  <div>
-                    <p className="font-black text-slate-900 text-sm mb-1">{order.customer}</p>
-                    <p className="text-[9px] text-slate-400 font-bold tracking-widest">{order.id}</p>
-                    <p className="text-blue-600 font-black text-sm mt-2 tracking-wide">Rp {Number(order.grand_total).toLocaleString('id-ID')}</p>
-                  </div>
-                  <span className={`text-[9px] uppercase tracking-widest font-black px-3 py-1.5 rounded-xl border-2 ${order.status === 'Selesai' ? 'bg-emerald-100 text-emerald-600 border-emerald-200' : 'bg-orange-100 text-orange-600 border-orange-200'}`}>
-                    {order.status}
-                  </span>
-                </div>
-              ))}
             </div>
 
             <button 
@@ -901,14 +991,14 @@ export default function App() {
                 </div>
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Tarif Jastip</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Tarif Jastip (%)</label>
                     <div className="relative">
                       <input type="number" value={tempFeePct} onChange={e => setTempFeePct(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 p-3.5 pr-8 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-black" />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Tarif Ongkir</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Tarif Ongkir (Rp)</label>
                     <input type="number" value={tempOngkir} onChange={e => setTempOngkir(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 p-3.5 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-black" />
                   </div>
                 </div>
@@ -955,13 +1045,13 @@ export default function App() {
                           const img = new Image();
                           img.onload = () => {
                             const canvas = document.createElement('canvas');
-                            const MAX_WIDTH = 600; 
+                            const MAX_WIDTH = 300; 
                             const scaleSize = MAX_WIDTH / img.width;
                             canvas.width = MAX_WIDTH;
                             canvas.height = img.height * scaleSize;
                             const ctx = canvas.getContext('2d');
                             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                            setTempQrisImage(canvas.toDataURL('image/jpeg', 0.8));
+                            setTempQrisImage(canvas.toDataURL('image/jpeg', 0.5));
                           };
                           img.src = ev.target.result;
                         };
@@ -1215,6 +1305,7 @@ export default function App() {
       <div className="max-w-md mx-auto min-h-screen relative bg-white overflow-x-hidden border-x-2 border-slate-100">
         {view === 'shop' && renderShopView()}
         {view === 'cart' && renderCartView()}
+        {view === 'orders' && renderOrdersView()}
         {view === 'admin' && renderAdminView()}
         {renderBottomNav()}
         {renderProductFormModal()}
