@@ -284,7 +284,7 @@ export default function App() {
              <Diamond size={24} strokeWidth={3} />
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight flex justify-center items-center gap-1.5 uppercase">
-            JASTIP <span className="text-blue-600">PREMIUM</span>
+            JASTIP <span className="text-blue-600">MAKANANMU</span>
           </h1>
           <p className="text-[10px] text-slate-500 tracking-widest mt-1 uppercase font-bold">Titip Eksklusif & Cepat</p>
         </div>
@@ -293,7 +293,7 @@ export default function App() {
           <Search size={18} strokeWidth={3} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input 
             type="text" 
-            placeholder="Cari tas, parfum, aksesoris..." 
+            placeholder="Cari makanan khas, ikan asin..." 
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 pl-11 pr-4 py-3.5 rounded-2xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-bold transition-colors"
