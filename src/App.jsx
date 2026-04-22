@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { ShoppingCart, Home, Settings, Plus, Image as ImageIcon, Package, Check, Trash2, ArrowRight, Diamond } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { ShoppingCart, Home, Settings, Plus, Image as ImageIcon, Package, Check, Trash2, ArrowRight, Diamond, Database, RefreshCw, AlertTriangle, X, Sparkles } from 'lucide-react';
 
 // --- MOCK DATA PREVIEW (Sebagai cadangan jika API belum terhubung) ---
 const initialProducts = [
@@ -13,11 +13,7 @@ const mockOrders = [
   { id: 'ORD-002', date: '2026-04-21', customer: 'Ibu Sarah', total_modal: 2500000, total_sell: 2800000, fee: 140000, ongkir: 5000, grand_total: 2945000, status: 'Diproses' },
 ];
 
-// ==========================================
-// PENGATURAN API GOOGLE SHEETS
-// ==========================================
-// Ganti tulisan di bawah ini dengan URL Web App dari Google Apps Script Anda
-const API_URL = "https://script.google.com/macros/s/AKfycby7ACCocOywxV3Cx0QEbk2B6Axz7HptgX4zMmi3ApTdcsBxysch0K8xaKkUBgjBkNdtaQ/exec"; 
+const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycby7ACCocOywxV3Cx0QEbk2B6Axz7HptgX4zMmi3ApTdcsBxysch0K8xaKkUBgjBkNdtaQ/exec";
 
 export default function App() {
   const [view, setView] = useState('shop');
@@ -26,48 +22,81 @@ export default function App() {
   const [orders, setOrders] = useState(mockOrders);
   const [settings, setSettings] = useState({ fee_percent: 0.05, ongkir_flat: 5000 });
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  
+  // State Baru untuk Sistem & Sinkronisasi
+  const [apiUrl, setApiUrl] = useState(() => localStorage.getItem('jastip_api_url') || DEFAULT_API_URL);
+  const [isSyncing, setIsSyncing] = useState(false);
+  
+  // State untuk Modal Tambah Barang
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newProduct, setNewProduct] = useState({ name: '', price_modal: '', price_sell: '', image: '', category: '' });
 
   // ==========================================
-  // AMBIL DATA DARI GOOGLE SHEETS (Otomatis)
+  // FUNGSI SINKRONISASI DATA (MANUAL & OTOMATIS)
   // ==========================================
-  useEffect(() => {
-    const fetchDataFromGAS = async () => {
-      // Jika API_URL belum diganti, hentikan proses (gunakan mock data)
-      if (API_URL === "https://script.google.com/macros/s/AKfycby7ACCocOywxV3Cx0QEbk2B6Axz7HptgX4zMmi3ApTdcsBxysch0K8xaKkUBgjBkNdtaQ/execT") return;
+  const syncDataFromGAS = useCallback(async (isManual = false) => {
+    if (!apiUrl || apiUrl === DEFAULT_API_URL) {
+      if (isManual) alert("Mohon atur URL API Google Script terlebih dahulu di tab 'SISTEM'!");
+      return;
+    }
 
-      try {
-        // Ambil Data Produk
-        const resProducts = await fetch(`${API_URL}?action=getProducts`);
-        const dataProducts = await resProducts.json();
-        if (!dataProducts.error && dataProducts.length > 0) {
-          setProducts(dataProducts);
-        }
-
-        // Ambil Data Pengaturan (Fee & Ongkir)
-        const resSettings = await fetch(`${API_URL}?action=getSettings`);
-        const dataSettings = await resSettings.json();
-        if (!dataSettings.error) {
-          setSettings(dataSettings);
-        }
-      } catch (error) {
-        console.error("Gagal menarik data dari Google Sheets:", error);
+    setIsSyncing(true);
+    try {
+      const resProducts = await fetch(`${apiUrl}?action=getProducts`);
+      const dataProducts = await resProducts.json();
+      if (!dataProducts.error && dataProducts.length > 0) {
+        setProducts(dataProducts);
       }
-    };
 
-    fetchDataFromGAS();
-  }, []); // Berjalan satu kali saat aplikasi pertama kali dimuat
+      const resSettings = await fetch(`${apiUrl}?action=getSettings`);
+      const dataSettings = await resSettings.json();
+      if (!dataSettings.error) {
+        setSettings(dataSettings);
+      }
+      
+      if (isManual) alert("Terkoneksi! Sinkronisasi data berhasil.");
+    } catch (error) {
+      if (isManual) alert("Gagal sinkronisasi. Pastikan URL benar dan koneksi internet stabil.");
+      console.error("Fetch Error:", error);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [apiUrl]);
 
-  // Load Cart dari LocalStorage
+  // Auto-sync saat aplikasi pertama kali dibuka (jika URL valid)
+  useEffect(() => {
+    syncDataFromGAS(false);
+  }, [syncDataFromGAS]);
+
+  // ==========================================
+  // MANAJEMEN PENYIMPANAN LOKAL (LOCALSTORAGE)
+  // ==========================================
   useEffect(() => {
     const savedCart = localStorage.getItem('jastip_cart_premium');
     if (savedCart) setCart(JSON.parse(savedCart));
   }, []);
 
-  // Simpan Cart ke LocalStorage
   useEffect(() => {
     localStorage.setItem('jastip_cart_premium', JSON.stringify(cart));
   }, [cart]);
 
+  // Fungsi Reset Keseluruhan
+  const handleResetSystem = () => {
+    const confirm = window.confirm("PERINGATAN: Ini akan mereset URL Database, menghapus keranjang, dan mengeluarkan Anda dari Panel Eksekutif. Lanjutkan?");
+    if (confirm) {
+      localStorage.removeItem('jastip_cart_premium');
+      localStorage.removeItem('jastip_api_url');
+      setCart([]);
+      setApiUrl(DEFAULT_API_URL);
+      setIsAdminLoggedIn(false);
+      setView('shop');
+      alert("Sistem berhasil direset ke pengaturan pabrik.");
+    }
+  };
+
+  // ==========================================
+  // LOGIKA KERANJANG
+  // ==========================================
   const addToCart = (product) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
@@ -119,14 +148,13 @@ export default function App() {
       <div className="flex flex-col gap-6">
         {products.map(product => (
           <div key={product.id} className="bg-zinc-900/50 backdrop-blur-md border border-white/5 rounded-3xl overflow-hidden shadow-2xl group">
-            <div className="relative">
-              <img src={product.image} alt={product.name} className="w-full h-56 object-cover opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
+            <div className="relative bg-zinc-800">
+              <img src={product.image || 'https://via.placeholder.com/500x300?text=No+Image'} alt={product.name} className="w-full h-56 object-cover opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
               <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1 rounded-full">
                 <span className="text-[10px] text-amber-400 tracking-widest uppercase font-medium">{product.category}</span>
               </div>
             </div>
             <div className="p-5 relative overflow-hidden">
-               {/* Subtle glow effect */}
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-500/10 blur-3xl rounded-full pointer-events-none"></div>
               
               <h3 className="font-serif text-white text-lg leading-tight mb-2">{product.name}</h3>
@@ -252,17 +280,23 @@ export default function App() {
 
   // --- HALAMAN ADMIN: DASHBOARD ---
   const AdminView = () => {
-    const [adminTab, setAdminTab] = useState('analytics');
+    const [adminTab, setAdminTab] = useState('analytics'); // analytics, products, system
     const [passwordInput, setPasswordInput] = useState('');
+    const [tempApiUrl, setTempApiUrl] = useState(apiUrl);
 
-    // --- LOGIKA LOGIN ADMIN ---
     const handleAdminLogin = () => {
-      if (passwordInput === 'admin123') { // Sandi default: admin123
+      if (passwordInput === 'admin123') { 
         setIsAdminLoggedIn(true);
         setPasswordInput('');
       } else {
         alert('Sandi salah!');
       }
+    };
+
+    const saveApiUrl = () => {
+      localStorage.setItem('jastip_api_url', tempApiUrl);
+      setApiUrl(tempApiUrl);
+      alert('URL API berhasil disimpan! Silakan klik Sinkronisasi untuk mengambil data.');
     };
 
     if (!isAdminLoggedIn) {
@@ -314,14 +348,15 @@ export default function App() {
         </div>
         
         {/* Modern Tabs */}
-        <div className="flex bg-zinc-900/50 p-1.5 rounded-2xl mb-8 border border-white/5">
-          <button onClick={() => setAdminTab('analytics')} className={`flex-1 py-3 text-[10px] uppercase tracking-widest rounded-xl transition-all ${adminTab === 'analytics' ? 'bg-white text-black font-bold shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Statistik</button>
-          <button onClick={() => setAdminTab('products')} className={`flex-1 py-3 text-[10px] uppercase tracking-widest rounded-xl transition-all ${adminTab === 'products' ? 'bg-white text-black font-bold shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Inventaris</button>
+        <div className="flex bg-zinc-900/50 p-1.5 rounded-2xl mb-6 border border-white/5">
+          <button onClick={() => setAdminTab('analytics')} className={`flex-1 py-3 text-[9px] sm:text-[10px] uppercase tracking-widest rounded-xl transition-all ${adminTab === 'analytics' ? 'bg-white text-black font-bold shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Statistik</button>
+          <button onClick={() => setAdminTab('products')} className={`flex-1 py-3 text-[9px] sm:text-[10px] uppercase tracking-widest rounded-xl transition-all ${adminTab === 'products' ? 'bg-white text-black font-bold shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Inventaris</button>
+          <button onClick={() => setAdminTab('system')} className={`flex-1 py-3 text-[9px] sm:text-[10px] uppercase tracking-widest rounded-xl transition-all ${adminTab === 'system' ? 'bg-white text-black font-bold shadow-lg' : 'text-zinc-500 hover:text-white'}`}>Sistem</button>
         </div>
 
+        {/* TAB 1: ANALYTICS */}
         {adminTab === 'analytics' && (
           <div className="space-y-6 animate-in slide-in-from-left-4">
-            {/* Kartu Finansial Mewah */}
             <div className="bg-gradient-to-br from-amber-400 to-amber-600 p-6 rounded-3xl text-black relative overflow-hidden shadow-[0_10px_40px_rgba(245,158,11,0.2)]">
               <div className="absolute top-0 right-0 w-40 h-40 bg-white/20 rounded-full blur-3xl -mr-10 -mt-10"></div>
               <h3 className="text-black/70 font-medium text-[10px] tracking-widest uppercase mb-1">Keuntungan Bersih</h3>
@@ -339,7 +374,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Riwayat Pesanan */}
             <h3 className="font-serif text-white text-sm tracking-widest uppercase mt-8 mb-4 border-b border-white/5 pb-2">Pesanan Terbaru</h3>
             <div className="space-y-4">
               {orders.map(order => (
@@ -358,19 +392,20 @@ export default function App() {
           </div>
         )}
 
+        {/* TAB 2: INVENTORY */}
         {adminTab === 'products' && (
           <div className="animate-in slide-in-from-right-4">
              <button 
-                onClick={() => alert('Fitur tambah barang otomatis dengan AI sedang dikonfigurasi di sisi backend (Google Sheets).')}
+                onClick={() => setShowAddModal(true)}
                 className="w-full bg-transparent border border-amber-400/50 text-amber-400 py-4 rounded-2xl mb-6 text-xs uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-amber-400/10 transition-all"
               >
-                <Plus size={16} /> Tambah Barang Baru (Bantuan AI)
+                <Plus size={16} /> Tambah Barang Baru
             </button>
             
             <div className="space-y-4">
               {products.map(product => (
                 <div key={product.id} className="bg-zinc-900/60 backdrop-blur-md border border-white/5 p-4 rounded-3xl flex gap-4">
-                  <img src={product.image} alt={product.name} className="w-20 h-20 object-cover rounded-2xl" />
+                  <img src={product.image || 'https://via.placeholder.com/150'} alt={product.name} className="w-20 h-20 object-cover rounded-2xl bg-zinc-800" />
                   <div className="flex-1 pt-1">
                     <h4 className="font-serif text-white text-sm mb-3 line-clamp-1">{product.name}</h4>
                     <div className="flex justify-between items-end">
@@ -389,6 +424,120 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* TAB 3: SYSTEM (BARU) */}
+        {adminTab === 'system' && (
+          <div className="space-y-6 animate-in slide-in-from-right-4">
+             <div className="bg-zinc-900/60 backdrop-blur-md border border-white/5 p-6 rounded-3xl">
+                <div className="flex items-center gap-3 mb-4 border-b border-white/10 pb-3">
+                  <Database size={18} className="text-amber-400"/>
+                  <h3 className="font-serif text-white text-sm tracking-widest uppercase">Database Koneksi</h3>
+                </div>
+                <p className="text-xs text-zinc-400 mb-4 leading-relaxed">Masukkan URL Web App dari Google Apps Script untuk menghubungkan aplikasi dengan Spreadsheet Anda.</p>
+                <textarea 
+                  value={tempApiUrl} 
+                  onChange={e => setTempApiUrl(e.target.value)}
+                  placeholder="https://script.google.com/macros/s/..."
+                  className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl mb-4 focus:outline-none focus:border-amber-400 text-xs font-mono h-20 resize-none break-all"
+                />
+                <button 
+                  onClick={saveApiUrl}
+                  className="w-full bg-white text-black font-bold py-3 rounded-xl uppercase tracking-widest text-xs hover:bg-amber-400 transition-all"
+                >
+                  Simpan URL API
+                </button>
+             </div>
+
+             <div className="grid grid-cols-2 gap-4">
+                <button 
+                  onClick={() => syncDataFromGAS(true)}
+                  disabled={isSyncing}
+                  className={`bg-zinc-900/60 border border-white/5 p-5 rounded-3xl flex flex-col items-center justify-center gap-3 transition-all ${isSyncing ? 'opacity-50' : 'hover:border-amber-400/50 hover:bg-zinc-800'}`}
+                >
+                  <RefreshCw size={24} className={`text-amber-400 ${isSyncing ? 'animate-spin' : ''}`}/>
+                  <span className="text-[10px] text-white tracking-widest uppercase font-bold text-center">
+                    {isSyncing ? 'Proses...' : 'Sinkronkan Data'}
+                  </span>
+                </button>
+
+                <button 
+                  onClick={handleResetSystem}
+                  className="bg-red-950/30 border border-red-500/20 p-5 rounded-3xl flex flex-col items-center justify-center gap-3 hover:bg-red-900/40 transition-all"
+                >
+                  <AlertTriangle size={24} className="text-red-400"/>
+                  <span className="text-[10px] text-red-200 tracking-widest uppercase font-bold text-center">
+                    Reset Keseluruhan
+                  </span>
+                </button>
+             </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // --- MODAL TAMBAH BARANG (BARU) ---
+  const AddProductModal = () => {
+    if (!showAddModal) return null;
+
+    const handleAddSimulated = () => {
+      if(!newProduct.name || !newProduct.price_sell) return alert('Nama dan Harga Jual wajib diisi!');
+      
+      const productToAdd = {
+        id: new Date().getTime().toString(),
+        name: newProduct.name,
+        price_modal: Number(newProduct.price_modal) || 0,
+        price_sell: Number(newProduct.price_sell) || 0,
+        stock: 1,
+        category: newProduct.category || 'Lainnya',
+        image: newProduct.image || 'https://via.placeholder.com/500x300?text=Barang+Baru'
+      };
+
+      setProducts([productToAdd, ...products]);
+      setShowAddModal(false);
+      setNewProduct({ name: '', price_modal: '', price_sell: '', image: '', category: '' });
+      alert("Simulasi berhasil! (Catatan: Untuk menyimpan permanen, harap tambahkan juga ke Google Sheets Anda).");
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in">
+        <div className="bg-[#111] border border-white/10 w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+          <div className="flex justify-between items-center p-5 border-b border-white/5 bg-zinc-900/50">
+            <h3 className="font-serif text-white tracking-widest uppercase text-sm">Tambah Barang</h3>
+            <button onClick={() => setShowAddModal(false)} className="text-zinc-500 hover:text-white"><X size={20}/></button>
+          </div>
+          
+          <div className="p-5 overflow-y-auto flex-1 space-y-4 custom-scrollbar">
+            <div>
+              <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Nama Barang</label>
+              <input type="text" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:border-amber-400 text-sm" placeholder="Tas Balenciaga..." />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Harga Modal</label>
+                <input type="number" value={newProduct.price_modal} onChange={e => setNewProduct({...newProduct, price_modal: e.target.value})} className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:border-amber-400 text-sm" placeholder="100000" />
+              </div>
+              <div>
+                <label className="text-[10px] text-amber-500 uppercase tracking-widest mb-1 block">Harga Jual</label>
+                <input type="number" value={newProduct.price_sell} onChange={e => setNewProduct({...newProduct, price_sell: e.target.value})} className="w-full bg-black/50 border border-amber-500/30 text-white p-3 rounded-xl focus:border-amber-400 text-sm" placeholder="150000" />
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">Kategori</label>
+              <input type="text" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})} className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:border-amber-400 text-sm" placeholder="Fashion / Tas" />
+            </div>
+            <div>
+              <label className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 block">URL Foto (Google Drive)</label>
+              <input type="text" value={newProduct.image} onChange={e => setNewProduct({...newProduct, image: e.target.value})} className="w-full bg-black/50 border border-white/10 text-white p-3 rounded-xl focus:border-amber-400 text-sm text-zinc-400" placeholder="https://..." />
+            </div>
+          </div>
+
+          <div className="p-5 border-t border-white/5 bg-zinc-900/50">
+             <button onClick={handleAddSimulated} className="w-full bg-amber-500 text-black font-bold py-3.5 rounded-xl uppercase tracking-widest text-xs hover:bg-amber-400 transition-all flex justify-center items-center gap-2">
+                Simpan Ke Toko <Sparkles size={16}/>
+             </button>
+          </div>
+        </div>
       </div>
     );
   };
@@ -403,6 +552,7 @@ export default function App() {
         {view === 'cart' && <CartView />}
         {view === 'admin' && <AdminView />}
         <BottomNav />
+        <AddProductModal />
       </div>
     </div>
   );
