@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ShoppingCart, Settings, Plus, Minus, Image as ImageIcon, Package, Check, Trash2, ArrowRight, Diamond, Database, RefreshCw, AlertTriangle, X, Sparkles, Save, Percent, Search, Receipt, Lock, Camera, Wand2, Cloud, Table, Download, Phone, Edit2, TrendingUp, Frown, Award, ChevronRight, ClipboardList, Filter } from 'lucide-react';
 
-// --- FUNGSI KEAMANAN ENKRIPSI SANDI (SHA-256) ---
-// Dikunci mati: Mencegah kebocoran di Inspect Element
+// --- FUNGSI KAAMANAN ENKRIPSI SANDI (SHA-256) ---
+// Dikonci paeh: Nyegah kabocoran di Inspect Element
 const hashPassword = async (password) => {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
@@ -13,15 +13,16 @@ const hashPassword = async (password) => {
 
 const DEFAULT_HASH = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9'; 
 
-// KUNCI MATI DATABASE (BLUEPRINT)
+// KONCI PAEH DATABASE (BLUEPRINT)
 const GLOBAL_API_URL = "https://script.google.com/macros/s/AKfycbxZeQRz93HE5vrVIy-1lSmjY5pqHwncDGodKtO1k1MgwwxxXnZfBvc92ar1fIo195p5FA/exec";
+const DEFAULT_API_URL = GLOBAL_API_URL;
 
-// --- MOCK DATA ---
+// --- DATA BOHONGAN ---
 const initialProducts = [
-  { id: '1', name: 'Tas Chanel Classic Flap', price_modal: 85000000, price_sell: 87500000, stock: 2, sold: 12, category: 'Tas Mewah', status: 'Ready', image: 'https://images.unsplash.com/photo-1584916201218-f4242ceb4809?auto=format&fit=crop&w=500&q=80' },
-  { id: '2', name: 'Jam Tangan Rolex Submariner', price_modal: 150000000, price_sell: 155000000, stock: 1, sold: 3, category: 'Jam Tangan', status: 'Ready', image: 'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?auto=format&fit=crop&w=500&q=80' },
-  { id: '3', name: 'Parfum Dior Sauvage', price_modal: 2500000, price_sell: 2800000, stock: 5, sold: 25, category: 'Parfum', status: 'PO', image: 'https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&w=500&q=80' },
-  { id: '4', name: 'Kacamata Gucci Oversized', price_modal: 4000000, price_sell: 4500000, stock: 3, sold: 0, category: 'Aksesoris', status: 'PO', image: 'https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=500&q=80' },
+  { id: '1', name: 'Kantong Chanel Classic Flap', price_modal: 85000000, price_sell: 87500000, stock: 2, sold: 12, category: 'Kantong Mewah', status: 'Ready', image: '' },
+  { id: '2', name: 'Arloji Rolex Submariner', price_modal: 150000000, price_sell: 155000000, stock: 1, sold: 3, category: 'Arloji', status: 'Ready', image: '' },
+  { id: '3', name: 'Minyak Seungit Dior Sauvage', price_modal: 2500000, price_sell: 2800000, stock: 5, sold: 25, category: 'Minyak Seungit', status: 'PO', image: '' },
+  { id: '4', name: 'Kacamata Gucci Oversized', price_modal: 4000000, price_sell: 4500000, stock: 3, sold: 0, category: 'Aksesoris', status: 'PO', image: '' },
 ];
 
 const DEFAULT_SETTINGS = { 
@@ -36,11 +37,11 @@ const DEFAULT_SETTINGS = {
 };
 
 export default function App() {
-  // STATE NAVIGASI (Persistent)
+  // STATE NAVIGASI (Nyimpen)
   const [view, setView] = useState(() => localStorage.getItem('jastip_current_view') || 'shop');
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => localStorage.getItem('jastip_admin_logged_in') === 'true');
   
-  // STATE PENYIMPANAN & KONEKSI
+  // STATE PANYIMPENAN & KONEKSI
   const [apiUrl, setApiUrl] = useState(() => {
     const local = localStorage.getItem('jastip_api_url');
     if (!local || local.includes("MASUKKAN")) return GLOBAL_API_URL;
@@ -78,16 +79,16 @@ export default function App() {
     return savedCart ? JSON.parse(savedCart) : [];
   });
 
-  // STATE HALAMAN TOKO & KERANJANG
+  // STATE KACA TOKO & KARANJANG
   const [searchQuery, setSearchQuery] = useState('');
   const [showCheckout, setShowCheckout] = useState(false);
   const [buyerName, setBuyerName] = useState('');
   const [buyerNotes, setBuyerNotes] = useState(''); 
 
-  // STATE HALAMAN ADMIN
+  // STATE KACA ADMIN
   const [adminTab, setAdminTab] = useState(() => localStorage.getItem('jastip_admin_tab') || 'konfirmasi'); 
   const [passwordInput, setPasswordInput] = useState('');
-  const [adminOrderSearch, setAdminOrderSearch] = useState(''); // Filter pesanan admin
+  const [adminOrderSearch, setAdminOrderSearch] = useState(''); // Filter pesenan admin
   
   const [tempApiUrl, setTempApiUrl] = useState(apiUrl);
   const [tempSheetUrl, setTempSheetUrl] = useState(settings.sheet_url);
@@ -99,7 +100,7 @@ export default function App() {
   const [tempAdminWa, setTempAdminWa] = useState(settings.admin_wa);
   const [tempQrisImage, setTempQrisImage] = useState(settings.qris_image);
 
-  // STATE MODAL ADMIN (CRUD & REJECT)
+  // STATE MODAL ADMIN (CRUD & TOLAK)
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
@@ -109,7 +110,7 @@ export default function App() {
   const [rejectingOrderId, setRejectingOrderId] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   
-  // STATE MODAL USER (EDIT PESANAN)
+  // STATE MODAL USER (EDIT PESENAN)
   const [editOrderModal, setEditOrderModal] = useState(null);
 
   // ==========================================
@@ -117,7 +118,7 @@ export default function App() {
   // ==========================================
   const syncDataFromGAS = useCallback(async (isManual = false, isSilent = false) => {
     if (!apiUrl || apiUrl === "" || apiUrl === "MASUKKAN_URL_WEB_APP_DISINI") {
-      if (isManual) alert("Mohon atur URL API Google Script terlebih dahulu di tab 'SISTEM'!");
+      if (isManual) alert("Mugi atur URL API Google Script heula di tab 'SISTEM'!");
       return;
     }
 
@@ -150,15 +151,16 @@ export default function App() {
          }));
       }
       
-      if (isManual) alert("Berhasil! Data perangkat ini telah tersinkronisasi 100% dengan Database Pusat.");
+      if (isManual) alert("Pisan! Data alat ieu geus kasinkron 100% sareng Database Puseur.");
     } catch (error) {
-      if (isManual) alert("Gagal Sinkronisasi! Terdapat pemblokiran. Pastikan Anda telah Men-Deploy Script dengan akses 'Siapa Saja' (Anyone).");
+      if (isManual) alert("Gagal Sinkronisasi! Aya pemblokiran. Pastikeun Anjeun geus Men-Deploy Script ku aksés 'Saha Wae' (Anyone).");
       console.error("Fetch Error:", error);
     } finally {
       if (!isSilent) setIsSyncing(false);
     }
   }, [apiUrl]);
 
+  // Auto-sync & Auto-Polling (unggal 10 detik)
   useEffect(() => {
     if (apiUrl && apiUrl !== "") {
       syncDataFromGAS(false, true); 
@@ -191,7 +193,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('jastip_my_orders', JSON.stringify(myOrderIds)); }, [myOrderIds]);
 
   // ==========================================
-  // FUNGSI PUSH DATABASE (KIRIM DATA KE GAS) 
+  // FUNGSI PUSH DATABASE (KIRIM DATA KA GAS) 
   // ==========================================
   const pushToDB = (action, payloadObj = {}) => {
     if (apiUrl && apiUrl !== "") {
@@ -205,16 +207,16 @@ export default function App() {
   };
 
   const handleForcePushLocalToDB = () => {
-    if(window.confirm("FITUR MIGRASI: Yakin ingin menimpa Database Cloud agar sama persis dengan HP ini? Sangat berguna jika Laptop Anda kosong sementara di HP sudah banyak barang.")) {
+    if(window.confirm("FITUR MIGRASI: Yakin badé nimpa Database Cloud supados sami persis sareng HP ieu? Mangpaat pisan lamun Laptop Anjeun kosong bari di HP geus seueur barang.")) {
       pushToDB('updateSettings', { payload: settings });
       products.forEach(p => pushToDB('addProduct', { payload: p }));
       orders.forEach(o => pushToDB('addOrder', { payload: o }));
-      alert("Proses Upload Berjalan di Latar Belakang! Silakan tunggu sekitar 1-2 menit lalu coba cek di Laptop/Perangkat lain Anda.");
+      alert("Proses Unggah Lumangsung di Latar Pengker! Mugi antosan sakitar 1-2 menit lajeng cobi parios di Laptop/Alat sanésna.");
     }
   };
 
   const handleSaveProduct = () => {
-    if(!productForm.name || !productForm.price_sell) return alert('PENTING: Nama dan Harga Jual wajib diisi!');
+    if(!productForm.name || !productForm.price_sell) return alert('PENTING: Nami sareng Pangaos Ical wajib dieusian!');
     
     if (editingProduct) {
       const updatedProduct = {
@@ -228,7 +230,7 @@ export default function App() {
       };
       setProducts(products.map(p => p.id === editingProduct.id ? updatedProduct : p));
       pushToDB('editProduct', { payload: updatedProduct }); 
-      alert("Perubahan barang berhasil disimpan di Database!");
+      alert("Parobihan barang junun disimpen di Database!");
     } else {
       const newProd = {
         id: "PRD-" + new Date().getTime(),
@@ -239,17 +241,17 @@ export default function App() {
         sold: 0,
         category: productForm.category || 'Umum',
         status: productForm.status || 'Ready',
-        image: productForm.image || 'https://via.placeholder.com/500?text=Produk' 
+        image: productForm.image || '' 
       };
       setProducts([newProd, ...products]);
       pushToDB('addProduct', { payload: newProd });
-      alert("Barang baru berhasil ditambahkan ke Database!");
+      alert("Barang anyar junun ditambihkeun kana Database!");
     }
     setShowProductModal(false);
   };
 
   const handleDeleteProduct = (id) => {
-    if(window.confirm('Hapus barang ini secara permanen dari etalase?')) {
+    if(window.confirm('Hapus barang ieu sacara permanén tina etalase?')) {
       setProducts(products.filter(p => p.id !== id));
       setCart(cart.filter(item => item.id !== id));
       pushToDB('deleteProduct', { id: id }); 
@@ -257,32 +259,31 @@ export default function App() {
   };
 
   const handleClearInventory = () => {
-    if(window.confirm("PERINGATAN: Semua barang di inventaris Anda akan DIHAPUS BERSIH. Lanjutkan?")) {
+    if(window.confirm("PERHATOSAN: Sadaya barang dina inventaris Anjeun bakal DIHAPUS BERSIH. Lajeungkeun?")) {
       setProducts([]);
       setCart([]);
       pushToDB('clearProducts');
-      alert("Inventaris berhasil dikosongkan.");
+      alert("Inventaris junun dikosongkeun.");
     }
   };
 
   const handleRestoreDefaults = () => {
-    if(window.confirm("Ingin mengembalikan barang ke daftar bawaan pabrik?")) {
+    if(window.confirm("Hoyong mulangkeun barang kana daptar bawaan pabrik?")) {
       setProducts(initialProducts);
       setCart([]);
-      alert("Daftar barang berhasil dikembalikan ke pengaturan awal.");
+      alert("Daptar barang junun dipulangkeun kana pangaturan awal.");
     }
   };
 
   const handleClearOrders = () => {
-    if(window.confirm("PERINGATAN: Semua riwayat pesanan (Nota) dan Statistik Keuntungan akan di-reset menjadi NOL. Lanjutkan?")) {
+    if(window.confirm("PERHATOSAN: Sadaya riwayat pesenan (Nota) sareng Statistik Kauntungan bakal di-reset janten NOL. Lajeungkeun?")) {
       setOrders([]);
       setMyOrderIds([]);
       pushToDB('clearOrders');
-      alert("Statistik dan Riwayat Pesanan berhasil dikosongkan.");
+      alert("Statistik sareng Riwayat Pesenan junun dikosongkeun.");
     }
   };
 
-  // Update oleh Admin
   const handleUpdateOrderStatus = (orderId, newStatus, reason = '') => {
     const updatedOrders = orders.map(o => o.id === orderId ? { ...o, status: newStatus, reject_reason: reason } : o);
     setOrders(updatedOrders);
@@ -290,29 +291,28 @@ export default function App() {
   };
 
   const confirmRejectOrder = () => {
-    if (!rejectReason.trim()) return alert("Alasan penolakan harus diisi.");
+    if (!rejectReason.trim()) return alert("Alesan panolakan kedah dieusian.");
     handleUpdateOrderStatus(rejectingOrderId, 'Ditolak', rejectReason);
     setRejectingOrderId(null);
     setRejectReason('');
   };
 
-  // Update/Delete oleh User Pembeli
   const handleDeleteMyOrder = (id) => {
-    if(window.confirm('Yakin ingin membatalkan dan menghapus pesanan ini secara permanen?')) {
+    if(window.confirm('Yakin badé ngabatalkeun sareng ngahapus pesenan ieu sacara permanén?')) {
       setOrders(orders.filter(o => o.id !== id));
       setMyOrderIds(myOrderIds.filter(oid => oid !== id));
       pushToDB('deleteOrder', { id: id }); 
-      alert("Pesanan Anda telah dibatalkan dan dihapus.");
+      alert("Pesenan Anjeun geus dibatalkeun sareng dihapus.");
     }
   };
 
   const handleSaveEditedMyOrder = () => {
-    if(!editOrderModal.customer.trim()) return alert('Nama tidak boleh kosong!');
+    if(!editOrderModal.customer.trim()) return alert('Nami teu kenging kosong!');
     const updatedOrders = orders.map(o => o.id === editOrderModal.id ? editOrderModal : o);
     setOrders(updatedOrders);
     pushToDB('editOrder', { payload: editOrderModal }); 
     setEditOrderModal(null);
-    alert('Catatan/Nama pada pesanan Anda berhasil diperbarui!');
+    alert('Catetan/Nami dina pesenan Anjeun junun diropéa!');
   };
 
   const handleSaveSystemSettings = async () => {
@@ -339,11 +339,11 @@ export default function App() {
     setSettings(newSettings);
     pushToDB('updateSettings', { payload: newSettings }); 
     setTempAdminPwd('');
-    alert('Pengaturan Sistem dikunci & Disinkronisasikan ke Database Pusat!');
+    alert('Pangaturan Sistem dikonci & Disinkronkeun kana Database Puseur!');
   };
 
   const handleResetSystem = () => {
-    if (window.confirm("PERINGATAN BAHAYA: Sistem akan direset sepenuhnya ke setelan awal. Lanjutkan?")) {
+    if (window.confirm("PERHATOSAN BAHAYA: Sistem bakal direset sapinuhna kana setélan awal. Lajeungkeun?")) {
       localStorage.clear();
       setCart([]);
       setProducts([]);
@@ -354,11 +354,10 @@ export default function App() {
       setTempApiUrl(GLOBAL_API_URL);
       setIsAdminLoggedIn(false);
       setView('shop');
-      alert("Sistem berhasil direset ke pengaturan awal.");
+      alert("Sistem junun direset kana pangaturan awal.");
     }
   };
 
-  // --- FUNGSI KERANJANG ---
   const addToCart = (product) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
@@ -367,7 +366,7 @@ export default function App() {
     });
     const toast = document.createElement('div');
     toast.className = "fixed top-5 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-[10px] shadow-lg border-2 border-blue-700 z-[100] transition-all flex items-center gap-2 uppercase tracking-widest";
-    toast.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Masuk Keranjang`;
+    toast.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Asup Karanjang`;
     document.body.appendChild(toast);
     setTimeout(() => { toast.classList.add('opacity-0'); setTimeout(() => toast.remove(), 200); }, 1000);
   };
@@ -398,7 +397,7 @@ export default function App() {
     setShowProductModal(true);
   };
 
-  // --- KOMPONEN NAVIGASI BAWAH (MODERN FLAT) ---
+  // --- KOMPONEN NAVIGASI HANDAP (MODERN FLAT) ---
   const renderBottomNav = () => (
     <div className="fixed bottom-0 w-full max-w-md mx-auto bg-white border-t-2 border-slate-100 z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
       <div className="flex justify-around items-center p-2 pb-4">
@@ -413,7 +412,7 @@ export default function App() {
               {cart.reduce((sum, item) => sum + item.qty, 0)}
             </span>
           )}
-          <span className="text-[9px] font-black mt-1 tracking-widest uppercase">KERANJANG</span>
+          <span className="text-[9px] font-black mt-1 tracking-widest uppercase">KARANJANG</span>
         </button>
         <button onClick={() => setView('orders')} className={`flex flex-col items-center p-2 w-1/4 relative active:scale-95 transition-transform ${view === 'orders' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
           <ClipboardList size={24} strokeWidth={view === 'orders' ? 3 : 2} />
@@ -422,7 +421,7 @@ export default function App() {
               {myOrderIds.length}
             </span>
           )}
-          <span className="text-[9px] font-black mt-1 tracking-widest uppercase">PESANAN</span>
+          <span className="text-[9px] font-black mt-1 tracking-widest uppercase">PESENAN</span>
         </button>
         <button onClick={() => setView('admin')} className={`flex flex-col items-center p-2 w-1/4 active:scale-95 transition-transform ${view === 'admin' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
           <Settings size={24} strokeWidth={view === 'admin' ? 3 : 2} />
@@ -432,9 +431,6 @@ export default function App() {
     </div>
   );
 
-  // ==========================================
-  // RENDER: HALAMAN TOKO
-  // ==========================================
   const renderShopView = () => {
     const filteredProducts = products
         .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.category.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -456,7 +452,7 @@ export default function App() {
           <Search size={18} strokeWidth={3} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input 
             type="text" 
-            placeholder="Cari Barang..." 
+            placeholder="Milarian Barang..." 
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 pl-11 pr-4 py-3.5 rounded-2xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-bold transition-colors"
@@ -466,7 +462,7 @@ export default function App() {
         {filteredProducts.length === 0 && (
           <div className="text-center text-slate-500 py-12 flex flex-col items-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
             <Package size={40} strokeWidth={2} className="mb-3 text-slate-300" />
-            <p className="font-bold text-sm uppercase tracking-widest">Belum Ada Barang</p>
+            <p className="font-bold text-sm uppercase tracking-widest">Teu Acan Aya Barang</p>
           </div>
         )}
 
@@ -475,11 +471,11 @@ export default function App() {
             <div key={product.id} className="bg-white border-2 border-slate-100 rounded-2xl overflow-hidden relative shadow-sm">
               {index === 0 && (product.sold > 0) && searchQuery === '' && (
                 <div className="absolute top-0 right-0 bg-red-500 text-white px-3 py-1.5 rounded-bl-2xl font-black text-[10px] tracking-widest uppercase z-10 flex items-center gap-1">
-                  <Sparkles size={12} strokeWidth={3}/> LAKU KERAS
+                  <Sparkles size={12} strokeWidth={3}/> PAJU PISAN
                 </div>
               )}
               <div className="relative bg-slate-100 h-56">
-                <img src={product.image || 'https://via.placeholder.com/500x300?text=No+Image'} alt={product.name} className="w-full h-full object-cover" />
+                <img src={product.image || ''} alt={product.name} className="w-full h-full object-cover" />
                 <div className="absolute top-3 left-3 flex gap-2 items-center z-10">
                   <span className="bg-white border-2 border-slate-200 px-2.5 py-1 rounded-xl text-[9px] text-slate-800 tracking-widest uppercase font-black">
                     {product.category}
@@ -491,13 +487,13 @@ export default function App() {
               </div>
               <div className="p-5 bg-white">
                 <h3 className="font-black text-slate-900 text-lg leading-tight mb-1">{product.name}</h3>
-                {product.sold > 0 && <p className="text-[10px] text-slate-500 tracking-widest uppercase mb-2 font-bold">Terjual {product.sold} Unit</p>}
+                {product.sold > 0 && <p className="text-[10px] text-slate-500 tracking-widest uppercase mb-2 font-bold">Kajual {product.sold} Unit</p>}
                 <p className="text-blue-600 font-black tracking-tight text-xl mb-4 mt-2">Rp {Number(product.price_sell).toLocaleString('id-ID')}</p>
                 <button 
                   onClick={() => addToCart(product)}
                   className="w-full bg-blue-600 text-white border-2 border-blue-700 py-3.5 rounded-xl text-[11px] font-black tracking-widest uppercase active:scale-95 transition-transform flex items-center justify-center gap-2"
                 >
-                  <Plus size={16} strokeWidth={3} /> TAMBAH KE KERANJANG
+                  <Plus size={16} strokeWidth={3} /> TAMBIH KANA KARANJANG
                 </button>
               </div>
             </div>
@@ -507,9 +503,6 @@ export default function App() {
     );
   };
 
-  // ==========================================
-  // RENDER: HALAMAN KERANJANG
-  // ==========================================
   const renderCartView = () => {
     const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
     const subtotalSell = cart.reduce((sum, item) => sum + (Number(item.price_sell) * item.qty), 0);
@@ -520,7 +513,7 @@ export default function App() {
     const total = subtotalSell + feeJastip + ongkir;
 
     const handleCheckoutWA = () => {
-      if (!buyerName) return alert('Mohon ketik nama Anda.');
+      if (!buyerName) return alert('Mugi ketik nami Anjeun.');
       
       const newOrder = {
         id: 'ORD-' + new Date().getTime(),
@@ -549,12 +542,12 @@ export default function App() {
       });
       setProducts(updatedProducts);
 
-      let message = `*🧾 PESANAN BARU JASTIP*\n*ID:* ${newOrder.id}\n======================\nKlien: *${buyerName}*\n`;
-      if (buyerNotes) message += `Catatan: _${buyerNotes}_\n`;
-      message += `\n*RINCIAN PESANAN:*\n`;
+      let message = `*🧾 PESENAN ANYAR JASTIP*\n*ID:* ${newOrder.id}\n======================\nKlien: *${buyerName}*\n`;
+      if (buyerNotes) message += `Catetan: _${buyerNotes}_\n`;
+      message += `\n*RINCIAN PESENAN:*\n`;
       
       cart.forEach(item => { message += `🔸 ${item.name} (${item.status}) x${item.qty}\n      Rp ${(Number(item.price_sell) * item.qty).toLocaleString('id-ID')}\n`; });
-      message += `\n----------------------\nSubtotal : Rp ${subtotalSell.toLocaleString('id-ID')}\nFee Jasa : Rp ${feeJastip.toLocaleString('id-ID')}\nOngkir   : ${isFreeOngkir ? '*GRATIS!*' : 'Rp ' + ongkir.toLocaleString('id-ID')}\n======================\n*TOTAL   : Rp ${total.toLocaleString('id-ID')}*\n======================\n_Menunggu konfirmasi admin..._`;
+      message += `\n----------------------\nSubtotal : Rp ${subtotalSell.toLocaleString('id-ID')}\nFee Jasa : Rp ${feeJastip.toLocaleString('id-ID')}\nOngkos Kirim   : ${isFreeOngkir ? '*GRATIS!*' : 'Rp ' + ongkir.toLocaleString('id-ID')}\n======================\n*TOTAL TAGIHAN  : Rp ${total.toLocaleString('id-ID')}*\n======================\n_Ngantosan konfirmasi admin..._`;
       
       let cleanWa = settings.admin_wa ? settings.admin_wa.replace(/\D/g, '') : '';
       if(cleanWa.startsWith('0')) cleanWa = '62' + cleanWa.substring(1);
@@ -576,23 +569,23 @@ export default function App() {
         <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4 border-2 border-slate-200">
            <ShoppingCart size={40} strokeWidth={2.5} className="text-slate-300" />
         </div>
-        <p className="font-black tracking-widest uppercase text-xs">Keranjang Kosong</p>
+        <p className="font-black tracking-widest uppercase text-xs">Karanjang Kosong</p>
       </div>
     );
 
     return (
       <div className="p-5 pb-32 animate-in fade-in duration-200">
         <h2 className="text-xl font-black text-slate-900 mb-6 tracking-widest uppercase flex items-center gap-2">
-           <ShoppingCart size={24} strokeWidth={3} className="text-blue-600"/> KERANJANG
+           <ShoppingCart size={24} strokeWidth={3} className="text-blue-600"/> KARANJANG
         </h2>
         
         {isFreeOngkir ? (
           <div className="bg-emerald-100 border-2 border-emerald-200 text-emerald-700 p-4 rounded-xl mb-6 text-xs text-center flex items-center justify-center gap-2 tracking-widest font-black">
-            <Sparkles size={16} strokeWidth={3} /> GRATIS ONGKIR AKTIF!
+            <Sparkles size={16} strokeWidth={3} /> GRATIS ONGKOS KIRIM AKTIF!
           </div>
         ) : (
           <div className="bg-slate-50 border-2 border-slate-200 text-slate-600 p-4 rounded-xl mb-6 text-xs text-center tracking-wide font-bold">
-            Beli <span className="text-blue-600 font-black">{settings.min_free_ongkir - totalItems}</span> barang lagi untuk <span className="text-slate-900 font-black">GRATIS ONGKIR</span>
+            Mésér <span className="text-blue-600 font-black">{settings.min_free_ongkir - totalItems}</span> barang deui kanggo <span className="text-slate-900 font-black">GRATIS ONGKOS KIRIM</span>
           </div>
         )}
 
@@ -621,7 +614,7 @@ export default function App() {
             </div>
 
             <div className="bg-white border-2 border-slate-200 p-5 rounded-2xl space-y-4 relative shadow-sm">
-              <h3 className="text-slate-900 font-black tracking-widest uppercase text-xs mb-2 border-b-2 border-slate-100 pb-3">Ringkasan Tagihan</h3>
+              <h3 className="text-slate-900 font-black tracking-widest uppercase text-xs mb-2 border-b-2 border-slate-100 pb-3">Ringkesan Tagihan</h3>
               <div className="flex justify-between text-slate-600 text-xs font-bold"><span>Subtotal ({totalItems} item)</span> <span className="text-slate-900 font-black">Rp {subtotalSell.toLocaleString('id-ID')}</span></div>
               <div className="flex justify-between text-slate-600 text-xs font-bold"><span>Biaya Jasa ({(settings.fee_percent * 100).toFixed(0)}%)</span> <span className="text-slate-900 font-black">Rp {feeJastip.toLocaleString('id-ID')}</span></div>
               <div className="flex justify-between text-slate-600 text-xs font-bold items-center">
@@ -634,7 +627,7 @@ export default function App() {
                  <span className="text-blue-600 font-black text-xl">Rp {total.toLocaleString('id-ID')}</span>
               </div>
               <button onClick={() => setShowCheckout(true)} className="w-full bg-blue-600 text-white border-2 border-blue-700 font-black py-4 rounded-xl mt-4 uppercase tracking-widest text-[11px] active:scale-95 transition-transform flex justify-center items-center gap-2">
-                LANJUT PEMBAYARAN <ArrowRight size={16} strokeWidth={3} />
+                LAJEUNG MAYAR <ArrowRight size={16} strokeWidth={3} />
               </button>
             </div>
           </>
@@ -643,20 +636,20 @@ export default function App() {
             <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4 border-2 border-blue-200">
                <Receipt size={28} strokeWidth={3} />
             </div>
-            <h3 className="font-black text-slate-900 tracking-widest uppercase text-lg mb-6">Penyelesaian</h3>
+            <h3 className="font-black text-slate-900 tracking-widest uppercase text-lg mb-6">Panganggeusan</h3>
             
             <div className="w-full mb-4">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2 text-left">Nama Lengkap Pemesan</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2 text-left">Nami Lengkep Pesenan</label>
               <input 
-                type="text" placeholder="Ketik nama Anda..." 
+                type="text" placeholder="Ketik nami Anjeun..." 
                 value={buyerName} onChange={e => setBuyerName(e.target.value)}
                 className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 p-4 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-bold transition-colors"
               />
             </div>
             <div className="w-full mb-6">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2 text-left">Catatan Khusus (Opsional)</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2 text-left">Catetan Husus (Opsional)</label>
               <textarea 
-                placeholder="Misal: Warna hitam, tolong dibungkus rapat..." 
+                placeholder="Misal: Warna hideung, mugi dibungkus rapet..." 
                 value={buyerNotes} onChange={e => setBuyerNotes(e.target.value)}
                 className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 p-4 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-bold transition-colors h-20 resize-none"
               />
@@ -667,20 +660,20 @@ export default function App() {
                  <p className="text-[10px] text-center text-slate-600 font-bold uppercase tracking-widest mb-3">Scan Kode QRIS</p>
                  <img src={settings.qris_image} alt="QRIS" className="w-full aspect-square object-contain rounded-xl border-2 border-slate-200 bg-white" />
                  <button onClick={downloadQRIS} className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold text-[10px] tracking-widest uppercase flex items-center gap-2 active:scale-95 transition-transform w-max border-2 border-blue-700">
-                   <Download size={14} strokeWidth={3}/> Simpan QRIS
+                   <Download size={14} strokeWidth={3}/> Simpen QRIS
                  </button>
               </div>
             ) : (
               <div className="bg-slate-50 p-4 rounded-2xl mb-6 w-full border-2 border-slate-200 border-dashed">
                  <div className="w-full py-8 flex items-center justify-center flex-col text-slate-400">
                     <ImageIcon size={32} strokeWidth={2} className="mb-2"/>
-                    <span className="text-[10px] tracking-widest uppercase font-bold text-center">QRIS BELUM DIATUR</span>
+                    <span className="text-[10px] tracking-widest uppercase font-bold text-center">QRIS TEU ACAN DIATUR</span>
                  </div>
               </div>
             )}
 
             <div className="w-full bg-slate-50 p-5 rounded-xl border-2 border-slate-200 mb-6 text-left space-y-2 mt-4">
-               <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest mb-3 border-b-2 border-slate-200 pb-2">Rincian Akhir</p>
+               <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest mb-3 border-b-2 border-slate-200 pb-2">Rincian Ahir</p>
                {cart.map(c => (
                  <div key={c.id} className="flex justify-between text-xs text-slate-700 font-bold">
                    <span className="truncate pr-2">{c.qty}x {c.name}</span>
@@ -689,27 +682,24 @@ export default function App() {
                ))}
                <div className="pt-3 border-t-2 border-dashed border-slate-200 mt-3">
                  <div className="flex justify-between text-[10px] text-slate-600 font-bold mb-1"><span>Fee Jasa</span><span>Rp{feeJastip.toLocaleString('id-ID')}</span></div>
-                 <div className="flex justify-between text-[10px] text-slate-600 font-bold"><span>Ongkir</span><span className={isFreeOngkir ? "text-emerald-600 font-black" : ""}>{isFreeOngkir ? 'Rp 0' : 'Rp'+ongkir.toLocaleString('id-ID')}</span></div>
+                 <div className="flex justify-between text-[10px] text-slate-600 font-bold"><span>Ongkos Kirim</span><span className={isFreeOngkir ? "text-emerald-600 font-black" : ""}>{isFreeOngkir ? 'Rp 0' : 'Rp'+ongkir.toLocaleString('id-ID')}</span></div>
                </div>
                <div className="pt-3 mt-3 border-t-2 border-slate-200 flex justify-between items-center">
-                 <span className="text-xs font-black text-slate-900 uppercase tracking-widest">Total Bayar</span>
+                 <span className="text-xs font-black text-slate-900 uppercase tracking-widest">Total Mayar</span>
                  <span className="text-base font-black text-blue-600">Rp {total.toLocaleString('id-ID')}</span>
                </div>
             </div>
             
             <button onClick={handleCheckoutWA} className="w-full bg-emerald-500 text-white border-2 border-emerald-600 font-black py-4 rounded-xl uppercase tracking-widest text-[11px] active:scale-95 transition-transform flex justify-center items-center gap-2">
-              <Check size={18} strokeWidth={3} /> KONFIRMASI PESANAN
+              <Check size={18} strokeWidth={3} /> KONFIRMASI PESENAN
             </button>
-            <button onClick={() => setShowCheckout(false)} className="mt-4 text-[10px] text-slate-500 font-bold hover:text-slate-800 tracking-widest uppercase transition-colors py-2 w-full text-center">BATALKAN</button>
+            <button onClick={() => setShowCheckout(false)} className="mt-4 text-[10px] text-slate-500 font-bold hover:text-slate-800 tracking-widest uppercase transition-colors py-2 w-full text-center">BATALKEUN</button>
           </div>
         )}
       </div>
     );
   };
 
-  // ==========================================
-  // RENDER: HALAMAN STATUS PESANAN (PEMBELI)
-  // ==========================================
   const renderOrdersView = () => {
     const myOrdersList = orders.filter(o => myOrderIds.includes(o.id));
 
@@ -718,14 +708,14 @@ export default function App() {
         <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4 border-2 border-slate-200">
            <ClipboardList size={40} strokeWidth={2.5} className="text-slate-300" />
         </div>
-        <p className="font-black tracking-widest uppercase text-xs">Belum Ada Pesanan</p>
+        <p className="font-black tracking-widest uppercase text-xs">Teu Acan Aya Pesenan</p>
       </div>
     );
 
     return (
       <div className="p-5 pb-32 animate-in fade-in duration-300">
         <h2 className="text-xl font-black text-slate-900 mb-6 tracking-widest uppercase flex items-center gap-2">
-           <ClipboardList size={24} strokeWidth={3} className="text-blue-600"/> STATUS PESANAN
+           <ClipboardList size={24} strokeWidth={3} className="text-blue-600"/> STATUS PESENAN
         </h2>
         <div className="space-y-4">
           {myOrdersList.map(order => (
@@ -750,14 +740,14 @@ export default function App() {
               
               {order.notes && (
                  <div className="bg-slate-50 border border-slate-100 p-2.5 rounded-lg mt-1">
-                   <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Catatan Pembeli:</p>
+                   <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Catetan Nu Mésér:</p>
                    <p className="text-[11px] text-slate-800 font-medium italic">"{order.notes}"</p>
                  </div>
               )}
 
               {order.reject_reason && (
                 <div className="bg-red-50 border-2 border-red-200 p-3 rounded-xl mt-2">
-                  <p className="text-[10px] text-red-600 font-black uppercase tracking-widest mb-1">Alasan Penolakan:</p>
+                  <p className="text-[10px] text-red-600 font-black uppercase tracking-widest mb-1">Alesan Panolakan:</p>
                   <p className="text-xs text-red-800 font-bold">{order.reject_reason}</p>
                 </div>
               )}
@@ -765,10 +755,10 @@ export default function App() {
               {order.status === 'Menunggu Konfirmasi' && (
                 <div className="flex gap-2 mt-2 pt-3 border-t-2 border-dashed border-slate-200">
                   <button onClick={() => setEditOrderModal(order)} className="flex-1 bg-white border-2 border-slate-200 text-slate-600 py-2 rounded-xl text-[9px] font-black tracking-widest uppercase active:scale-95 transition-transform flex justify-center items-center gap-1.5">
-                    <Edit2 size={12} strokeWidth={3}/> Edit Info
+                    <Edit2 size={12} strokeWidth={3}/> Édit Info
                   </button>
                   <button onClick={() => handleDeleteMyOrder(order.id)} className="flex-1 bg-white border-2 border-red-200 text-red-500 py-2 rounded-xl text-[9px] font-black tracking-widest uppercase active:scale-95 transition-transform flex justify-center items-center gap-1.5">
-                    <Trash2 size={12} strokeWidth={3}/> Batalkan
+                    <Trash2 size={12} strokeWidth={3}/> Batalkeun
                   </button>
                 </div>
               )}
@@ -779,15 +769,12 @@ export default function App() {
     );
   };
 
-  // ==========================================
-  // RENDER: HALAMAN ADMIN
-  // ==========================================
   const renderAdminView = () => {
     const handleAdminLogin = async () => {
       const inputHash = await hashPassword(passwordInput);
       if (inputHash === settings.admin_password_hash) { 
         setIsAdminLoggedIn(true); setPasswordInput('');
-      } else { alert('Sandi salah!'); }
+      } else { alert('Sandi lepat!'); }
     };
 
     if (!isAdminLoggedIn) {
@@ -797,7 +784,7 @@ export default function App() {
             <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-blue-200">
                <Lock size={32} strokeWidth={3} />
             </div>
-            <h2 className="text-slate-900 font-black text-xl tracking-tight uppercase mb-6">Akses Admin</h2>
+            <h2 className="text-slate-900 font-black text-xl tracking-tight uppercase mb-6">Aksés Admin</h2>
             <input 
               type="password" placeholder="Ketik Sandi..." 
               value={passwordInput} onChange={e => setPasswordInput(e.target.value)}
@@ -815,7 +802,6 @@ export default function App() {
       );
     }
 
-    // Kalkulasi Statistik Keseluruhan
     let revenue = 0, capital = 0, totalFee = 0;
     orders.forEach(order => {
       if (order.status === 'Selesai') {
@@ -853,14 +839,13 @@ export default function App() {
           <button onClick={() => setAdminTab('system')} className={`flex-1 min-w-[80px] py-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${adminTab === 'system' ? 'bg-white text-blue-600 border-2 border-slate-200 shadow-sm' : 'text-slate-500'}`}>Sistem</button>
         </div>
 
-        {/* TAB KONFIRMASI PESANAN */}
         {adminTab === 'konfirmasi' && (
           <div className="space-y-4 animate-in slide-in-from-left-4">
              <div className="relative mb-6">
                 <Search size={18} strokeWidth={3} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input 
                   type="text" 
-                  placeholder="Cari nama klien atau barang..." 
+                  placeholder="Milarian nami klien atanapi barang..." 
                   value={adminOrderSearch}
                   onChange={e => setAdminOrderSearch(e.target.value)}
                   className="w-full bg-white border-2 border-slate-200 text-slate-900 pl-11 pr-4 py-3 rounded-2xl focus:outline-none focus:border-blue-600 text-sm font-bold transition-colors"
@@ -868,7 +853,7 @@ export default function App() {
              </div>
 
              <div className="space-y-4">
-                 {filteredAdminOrders.length === 0 && <div className="bg-slate-50 border-2 border-dashed border-slate-200 p-8 rounded-2xl text-center"><p className="text-xs font-bold text-slate-400">Tidak ada pesanan.</p></div>}
+                 {filteredAdminOrders.length === 0 && <div className="bg-slate-50 border-2 border-dashed border-slate-200 p-8 rounded-2xl text-center"><p className="text-xs font-bold text-slate-400">Teu aya pesenan.</p></div>}
                  {filteredAdminOrders.map(order => (
                    <div key={order.id} className="bg-white border-2 border-slate-200 p-5 rounded-2xl flex flex-col gap-3 shadow-sm">
                      <div className="flex justify-between items-start border-b-2 border-slate-100 pb-3">
@@ -896,7 +881,7 @@ export default function App() {
 
                      {order.notes && (
                        <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl mb-1">
-                         <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-1">Catatan Klien:</p>
+                         <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-1">Catetan Klien:</p>
                          <p className="text-xs text-slate-800 font-bold italic">"{order.notes}"</p>
                        </div>
                      )}
@@ -904,7 +889,7 @@ export default function App() {
                      <div className="bg-slate-50 p-3 rounded-xl border-2 border-slate-100">
                        <div className="flex justify-between text-[10px] text-slate-500 font-bold"><span>Subtotal</span><span>Rp {order.total_sell.toLocaleString('id-ID')}</span></div>
                        <div className="flex justify-between text-[10px] text-slate-500 font-bold"><span>Fee Jasa</span><span>Rp {order.fee.toLocaleString('id-ID')}</span></div>
-                       <div className="flex justify-between text-[10px] text-slate-500 font-bold"><span>Ongkir</span><span>Rp {order.ongkir.toLocaleString('id-ID')}</span></div>
+                       <div className="flex justify-between text-[10px] text-slate-500 font-bold"><span>Ongkos Kirim</span><span>Rp {order.ongkir.toLocaleString('id-ID')}</span></div>
                        <div className="flex justify-between items-center mt-2 pt-2 border-t-2 border-slate-200">
                          <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Total Tagihan</span>
                          <span className="text-sm font-black text-blue-600">Rp {Number(order.grand_total).toLocaleString('id-ID')}</span>
@@ -913,13 +898,13 @@ export default function App() {
 
                      {order.status === 'Menunggu Konfirmasi' && (
                        <div className="flex gap-2 mt-2 pt-2">
-                         <button onClick={() => handleUpdateOrderStatus(order.id, 'Diproses')} className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-[10px] font-black tracking-widest uppercase active:scale-95 transition-transform border-2 border-blue-700">Terima & Proses</button>
+                         <button onClick={() => handleUpdateOrderStatus(order.id, 'Diproses')} className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-[10px] font-black tracking-widest uppercase active:scale-95 transition-transform border-2 border-blue-700">Tampi & Proses</button>
                          <button onClick={() => setRejectingOrderId(order.id)} className="flex-1 bg-white border-2 border-red-200 text-red-600 py-3 rounded-xl text-[10px] font-black tracking-widest uppercase active:scale-95 transition-transform">Tolak</button>
                        </div>
                      )}
                      {order.status === 'Diproses' && (
                        <div className="flex gap-2 mt-2 pt-2">
-                         <button onClick={() => handleUpdateOrderStatus(order.id, 'Selesai')} className="w-full bg-emerald-500 text-white py-3 rounded-xl text-[10px] font-black tracking-widest uppercase active:scale-95 transition-transform border-2 border-emerald-600">Pesanan Selesai</button>
+                         <button onClick={() => handleUpdateOrderStatus(order.id, 'Selesai')} className="w-full bg-emerald-500 text-white py-3 rounded-xl text-[10px] font-black tracking-widest uppercase active:scale-95 transition-transform border-2 border-emerald-600">Pesenan Rengse</button>
                        </div>
                      )}
                    </div>
@@ -928,15 +913,14 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB ANALYTICS */}
         {adminTab === 'analytics' && (
           <div className="space-y-4 animate-in slide-in-from-left-4">
             <div className="bg-blue-600 p-6 rounded-2xl text-white border-2 border-blue-700 shadow-md">
-              <h3 className="text-blue-200 font-bold text-[10px] tracking-widest uppercase mb-1">Total Laba Bersih (Selesai)</h3>
+              <h3 className="text-blue-200 font-bold text-[10px] tracking-widest uppercase mb-1">Total Laba Bersih (Rengse)</h3>
               <p className="text-3xl font-black tracking-tight mb-6">Rp {stats.profit.toLocaleString('id-ID')}</p>
               <div className="grid grid-cols-2 gap-4 border-t-2 border-blue-500 pt-4 mt-2">
                 <div>
-                  <p className="text-blue-200 text-[9px] font-bold tracking-widest uppercase mb-1">Omset (Pendapatan)</p>
+                  <p className="text-blue-200 text-[9px] font-bold tracking-widest uppercase mb-1">Omset (Panghasilan)</p>
                   <p className="font-black text-sm tracking-wider">Rp {stats.revenue.toLocaleString('id-ID')}</p>
                 </div>
                 <div>
@@ -951,24 +935,24 @@ export default function App() {
                   <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center mb-3 border-2 border-orange-200">
                      <TrendingUp size={20} strokeWidth={3}/>
                   </div>
-                  <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-1">Telah Terjual</p>
+                  <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-1">Parantos Kajual</p>
                   <p className="text-xl font-black text-slate-900">{top10Products.reduce((sum, p)=>sum+p.sold,0)} Unit</p>
                </div>
                <div className="bg-white border-2 border-slate-200 p-4 rounded-2xl shadow-sm">
                   <div className="w-10 h-10 bg-slate-100 text-slate-500 rounded-xl flex items-center justify-center mb-3 border-2 border-slate-200">
                      <Frown size={20} strokeWidth={3}/>
                   </div>
-                  <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-1">Stok Mati / 0</p>
+                  <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-1">Stok Paeh / 0</p>
                   <p className="text-xl font-black text-slate-900">{unsoldProducts.length} Item</p>
                </div>
             </div>
 
             <div className="bg-white border-2 border-slate-200 p-5 rounded-2xl shadow-sm">
                <h3 className="font-black text-slate-900 text-xs tracking-widest uppercase mb-4 flex items-center gap-2 border-b-2 border-slate-100 pb-3">
-                 <Award size={18} className="text-orange-500" strokeWidth={3}/> 10 BARANG TERLARIS
+                 <Award size={18} className="text-orange-500" strokeWidth={3}/> 10 BARANG PAJU PISAN
                </h3>
                <div className="space-y-3">
-                 {top10Products.length === 0 && <p className="text-xs font-bold text-slate-400">Belum ada penjualan.</p>}
+                 {top10Products.length === 0 && <p className="text-xs font-bold text-slate-400">Teu acan aya pangicalan.</p>}
                  {top10Products.map((p, i) => (
                    <div key={p.id} className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -984,10 +968,10 @@ export default function App() {
 
             <div className="bg-slate-50 border-2 border-slate-200 border-dashed p-5 rounded-2xl">
                <h3 className="font-black text-slate-600 text-xs tracking-widest uppercase mb-4 flex items-center gap-2">
-                 <AlertTriangle size={18} strokeWidth={3}/> PERLU PERHATIAN (0 TERJUAL)
+                 <AlertTriangle size={18} strokeWidth={3}/> KEDAH DITITENAN (0 KAJUAL)
                </h3>
                <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
-                 {unsoldProducts.length === 0 && <p className="text-[10px] font-bold text-emerald-600 bg-emerald-100 p-2 rounded-lg text-center">Bagus! Semua barang pernah terjual.</p>}
+                 {unsoldProducts.length === 0 && <p className="text-[10px] font-bold text-emerald-600 bg-emerald-100 p-2 rounded-lg text-center">Sae! Sadaya barang parantos kajual.</p>}
                  {unsoldProducts.map(p => (
                    <div key={p.id} className="text-xs font-bold text-slate-600 flex justify-between bg-white p-2 rounded-lg border-2 border-slate-100">
                       <span className="truncate pr-2">{p.name}</span>
@@ -998,21 +982,20 @@ export default function App() {
             </div>
 
             <button onClick={handleClearOrders} className="w-full bg-white border-2 border-red-200 text-red-600 font-black py-4 rounded-xl text-[10px] uppercase tracking-widest flex justify-center items-center gap-2 active:scale-95 transition-transform mt-6 shadow-sm">
-                <Trash2 size={16} strokeWidth={3}/> KOSONGKAN RIWAYAT & LAPORAN
+                <Trash2 size={16} strokeWidth={3}/> KOSONGKEUN RIWAYAT & LAPORAN
             </button>
           </div>
         )}
 
-        {/* TAB PRODUCTS */}
         {adminTab === 'products' && (
           <div className="animate-in slide-in-from-right-4">
              <button onClick={openAddProduct} className="w-full bg-blue-600 text-white font-black py-4 rounded-xl mb-4 text-xs uppercase tracking-widest flex justify-center items-center gap-2 active:scale-95 transition-transform border-2 border-blue-700 shadow-md">
-                <Plus size={18} strokeWidth={3} /> ENTRI BARANG BARU
+                <Plus size={18} strokeWidth={3} /> ENTRI BARANG ANYAR
             </button>
 
             <div className="flex gap-3 mb-6">
               <button onClick={handleClearInventory} className="flex-1 bg-white border-2 border-red-200 text-red-600 font-black py-3.5 rounded-xl text-[9px] uppercase tracking-widest flex justify-center items-center gap-2 active:scale-95 transition-transform shadow-sm">
-                  <Trash2 size={14} strokeWidth={3}/> HAPUS SEMUA
+                  <Trash2 size={14} strokeWidth={3}/> HAPUS SADAYA
               </button>
               <button onClick={handleRestoreDefaults} className="flex-1 bg-white border-2 border-slate-300 text-slate-700 font-black py-3.5 rounded-xl text-[9px] uppercase tracking-widest flex justify-center items-center gap-2 active:scale-95 transition-transform shadow-sm">
                   <RefreshCw size={14} strokeWidth={3}/> RESET PABRIK
@@ -1057,26 +1040,25 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB SYSTEM */}
         {adminTab === 'system' && (
           <div className="space-y-6 animate-in slide-in-from-right-4">
              <div className="bg-white border-2 border-slate-200 p-5 rounded-2xl shadow-sm">
                 <div className="flex items-center gap-2 mb-4 border-b-2 border-slate-100 pb-2 mt-2">
                   <Database size={18} className="text-slate-500" strokeWidth={3}/>
-                  <h3 className="font-black text-slate-900 text-xs tracking-widest uppercase">Pemulihan & Migrasi</h3>
+                  <h3 className="font-black text-slate-900 text-xs tracking-widest uppercase">Pamulihan & Migrasi</h3>
                 </div>
-                <p className="text-[10px] text-slate-500 mb-4 font-bold">Gunakan fitur ini HANYA jika data di HP Anda lengkap, namun di perangkat lain (Laptop) kosong.</p>
+                <p className="text-[10px] text-slate-500 mb-4 font-bold">Anggo fitur ieu MUNG upami data di HP Anjeun lengkep, nanging di alat sanés (Laptop) kosong.</p>
                 <button onClick={handleForcePushLocalToDB} className="w-full bg-orange-100 text-orange-600 font-black py-4 rounded-xl uppercase tracking-widest text-[11px] active:scale-95 transition-transform flex items-center justify-center gap-2 border-2 border-orange-200 shadow-sm mb-8">
-                  <Cloud size={16} strokeWidth={3}/> UNGGAH PAKSA DATA HP KE CLOUD
+                  <Cloud size={16} strokeWidth={3}/> UNGGAH PAKSA DATA HP KA CLOUD
                 </button>
 
                 <div className="flex items-center gap-2 mb-4 border-b-2 border-slate-100 pb-2 mt-4">
                   <Lock size={18} className="text-slate-500" strokeWidth={3}/>
-                  <h3 className="font-black text-slate-900 text-xs tracking-widest uppercase">Keamanan Sandi</h3>
+                  <h3 className="font-black text-slate-900 text-xs tracking-widest uppercase">Kaamanan Sandi</h3>
                 </div>
                 <div className="mb-6">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Sandi Baru (Kosongkan jika tetap)</label>
-                  <input type="password" value={tempAdminPwd} onChange={e => setTempAdminPwd(e.target.value)} placeholder="Ketik sandi baru..." className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 p-3.5 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-bold transition-colors" />
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Sandi Anyar (Kosongkeun upami tetep)</label>
+                  <input type="password" value={tempAdminPwd} onChange={e => setTempAdminPwd(e.target.value)} placeholder="Ketik sandi anyar..." className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 p-3.5 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-bold transition-colors" />
                 </div>
 
                 <div className="flex items-center gap-2 mb-4 border-b-2 border-slate-100 pb-2 mt-4">
@@ -1094,11 +1076,11 @@ export default function App() {
 
                 <div className="flex items-center gap-2 mb-4 border-b-2 border-slate-100 pb-2 mt-4">
                   <Cloud size={18} className="text-slate-500" strokeWidth={3}/>
-                  <h3 className="font-black text-slate-900 text-xs tracking-widest uppercase">Penyimpanan Awan</h3>
+                  <h3 className="font-black text-slate-900 text-xs tracking-widest uppercase">Panyimpenan Awan</h3>
                 </div>
                 <div className="mb-6">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Direktori Google Drive (Foto Produk)</label>
-                  <input type="text" value={tempDriveUrl} onChange={e => setTempDriveUrl(e.target.value)} placeholder="Contoh: 1A2b3C4d5E6f7G..." className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 p-3.5 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-xs font-mono font-bold transition-colors"/>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Diréktori Google Drive (Poto Produk)</label>
+                  <input type="text" value={tempDriveUrl} onChange={e => setTempDriveUrl(e.target.value)} placeholder="Conto: 1A2b3C4d5E6f7G..." className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 p-3.5 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-xs font-mono font-bold transition-colors"/>
                 </div>
 
                 <div className="flex items-center gap-2 mb-4 border-b-2 border-slate-100 pb-2 mt-4">
@@ -1114,17 +1096,17 @@ export default function App() {
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Tarif Ongkir (Rp)</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Tarif Ongkos Kirim (Rp)</label>
                     <input type="number" value={tempOngkir} onChange={e => setTempOngkir(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 p-3.5 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-black" />
                   </div>
                 </div>
 
                 <div className="mb-6">
-                  <label className="text-[10px] text-emerald-600 font-black uppercase tracking-widest mb-2 block">Promo Gratis Ongkir</label>
+                  <label className="text-[10px] text-emerald-600 font-black uppercase tracking-widest mb-2 block">Promo Gratis Ongkos Kirim</label>
                   <div className="flex items-center gap-3 bg-emerald-50 border-2 border-emerald-100 p-2.5 rounded-xl">
-                    <span className="text-xs text-emerald-700 font-bold">Gratis beli</span>
+                    <span className="text-xs text-emerald-700 font-bold">Gratis mésér</span>
                     <input type="number" value={tempMinFree} onChange={e => setTempMinFree(e.target.value)} className="w-14 bg-white border-2 border-emerald-200 text-emerald-700 p-1.5 rounded-lg focus:outline-none text-sm text-center font-black" />
-                    <span className="text-xs text-emerald-700 font-bold">Brg/Lebih</span>
+                    <span className="text-xs text-emerald-700 font-bold">Brg/Langkung</span>
                   </div>
                 </div>
 
@@ -1133,8 +1115,8 @@ export default function App() {
                   <h3 className="font-black text-slate-900 text-xs tracking-widest uppercase">Kontak & QRIS</h3>
                 </div>
                 <div className="mb-4">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">No. WhatsApp Pusat</label>
-                  <input type="number" value={tempAdminWa} onChange={e => setTempAdminWa(e.target.value)} placeholder="Contoh: 6281234567890" className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 p-3.5 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-bold font-mono"/>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">No. WhatsApp Puseur</label>
+                  <input type="number" value={tempAdminWa} onChange={e => setTempAdminWa(e.target.value)} placeholder="Conto: 6281234567890" className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 p-3.5 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-bold font-mono"/>
                 </div>
                 <div className="mb-6">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 block">Unggah Barcode QRIS</label>
@@ -1172,7 +1154,7 @@ export default function App() {
                 </div>
 
                 <button onClick={handleSaveSystemSettings} className="w-full bg-slate-900 text-white font-black py-4 rounded-xl uppercase tracking-widest text-[11px] active:scale-95 transition-transform flex items-center justify-center gap-2 border-2 border-slate-900 shadow-md">
-                  <Save size={16} strokeWidth={3}/> KUNCI KONFIGURASI KE DATABASE
+                  <Save size={16} strokeWidth={3}/> KONCI KONFIGURASI KA DATABASE
                 </button>
              </div>
              
@@ -1180,12 +1162,12 @@ export default function App() {
                 <button onClick={() => syncDataFromGAS(true)} disabled={isSyncing} className={`bg-white border-2 border-blue-200 text-blue-600 p-4 rounded-2xl flex flex-col items-center justify-center gap-2 transition-all shadow-sm ${isSyncing ? 'opacity-50' : 'active:bg-blue-50'}`}>
                   <RefreshCw size={20} strokeWidth={3} className={isSyncing ? 'animate-spin' : ''}/>
                   <span className="text-[9px] font-black tracking-widest uppercase text-center">
-                    {isSyncing ? 'Menyelaraskan...' : 'Tarik Data Realtime'}
+                    {isSyncing ? 'Nyinkronkeun...' : 'Tarik Data Realtime'}
                   </span>
                 </button>
                 <button onClick={handleResetSystem} className="bg-white border-2 border-red-200 text-red-600 p-4 rounded-2xl flex flex-col items-center justify-center gap-2 active:bg-red-50 transition-all shadow-sm">
                   <AlertTriangle size={20} strokeWidth={3}/>
-                  <span className="text-[9px] font-black tracking-widest uppercase text-center">Reset ke Pabrik</span>
+                  <span className="text-[9px] font-black tracking-widest uppercase text-center">Reset ka Pabrik</span>
                 </button>
              </div>
           </div>
@@ -1194,9 +1176,6 @@ export default function App() {
     );
   };
 
-  // ==========================================
-  // RENDER: MODAL TAMBAH & EDIT BARANG (CRUD)
-  // ==========================================
   const renderProductFormModal = () => {
     if (!showProductModal) return null;
     const isEditing = !!editingProduct;
@@ -1226,23 +1205,23 @@ export default function App() {
     };
 
     const handleGenerateAI = async () => {
-      if(!productForm.name && !imagePreview) return alert("Mohon masukkan foto atau ketik nama barang terlebih dahulu agar AI bisa menganalisa.");
+      if(!productForm.name && !imagePreview) return alert("Mugi lebetkeun poto atanapi ketik nami barang heula supados AI tiasa nganalisa.");
       setIsGeneratingAI(true);
-      if (apiUrl && apiUrl !== DEFAULT_API_URL && apiUrl !== "") {
+      if (apiUrl && apiUrl !== "" && apiUrl !== "MASUKKAN_URL_WEB_APP_DISINI") {
         try {
-          const res = await fetch(apiUrl, { method: 'POST', mode: 'no-cors', headers:{'Content-Type': 'text/plain'}, body: JSON.stringify({ action: 'ai_description', text: productForm.name || "Buatkan nama mewah." }) });
+          const res = await fetch(apiUrl, { method: 'POST', mode: 'no-cors', headers:{'Content-Type': 'text/plain'}, body: JSON.stringify({ action: 'ai_description', text: productForm.name || "Pangdamelkeun nami mewah." }) });
         } catch(e) { console.error("AI gagal", e); }
       }
       
       setTimeout(() => {
          setProductForm(prev => ({
            ...prev,
-           name: prev.name ? `[LUXURY] ${prev.name.toUpperCase()}` : 'Barang Premium Terdeteksi',
+           name: prev.name ? `[LUXURY] ${prev.name.toUpperCase()}` : 'Barang Premium Katingal',
            category: prev.category || 'Barang Branded',
            price_sell: prev.price_sell || (Number(prev.price_modal || 0) * 1.5).toString() 
          }));
          setIsGeneratingAI(false);
-         alert("✨ AI telah mengoptimalkan detail produk untuk Anda!");
+         alert("✨ AI parantos ngoptimalkeun detail produk kanggo Anjeun!");
       }, 1500);
     };
 
@@ -1252,7 +1231,7 @@ export default function App() {
           <div className="flex justify-between items-center p-5 border-b-2 border-slate-100 bg-white z-10 relative">
             <h3 className="font-black text-slate-900 tracking-widest uppercase text-sm flex items-center gap-2">
               <Package size={20} className="text-blue-600" strokeWidth={3}/> 
-              {isEditing ? 'Mode Edit Barang' : 'Entri Barang Baru'}
+              {isEditing ? 'Modeu Édit Barang' : 'Entri Barang Anyar'}
             </h3>
             <button onClick={() => setShowProductModal(false)} className="text-slate-400 hover:text-red-600 bg-slate-100 p-2 rounded-full transition-colors border-2 border-slate-200"><X size={18} strokeWidth={3}/></button>
           </div>
@@ -1279,20 +1258,20 @@ export default function App() {
                  
                  <button type="button" onClick={handleGenerateAI} disabled={isGeneratingAI} className={`w-full py-3 rounded-xl border-2 text-[10px] uppercase tracking-widest font-black flex items-center justify-center gap-2 active:scale-95 transition-transform ${isGeneratingAI ? 'bg-indigo-50 border-indigo-200 text-indigo-400' : 'bg-white border-indigo-200 text-indigo-600 hover:bg-indigo-50'}`}>
                     {isGeneratingAI ? <RefreshCw size={16} strokeWidth={3} className="animate-spin"/> : <Wand2 size={16} strokeWidth={3}/>}
-                    {isGeneratingAI ? 'AI Sedang Bekerja...' : 'Auto-Generate via AI Gemini'}
+                    {isGeneratingAI ? 'AI Nuju Damel...' : 'Auto-Generate ngalangkungan AI Gemini'}
                  </button>
               </div>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border-2 border-slate-100 space-y-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Nama Produk Eksklusif</label>
-                <input type="text" value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 p-3.5 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-bold transition-colors" placeholder="Contoh: Sepatu Balenciaga..." />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Nami Produk Eksklusif</label>
+                <input type="text" value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 p-3.5 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-bold transition-colors" placeholder="Conto: Sapatu Balenciaga..." />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Ketersediaan</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Kasayogian</label>
                   <div className="relative">
                     <select value={productForm.status} onChange={e => setProductForm({...productForm, status: e.target.value})} className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 p-3.5 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-bold appearance-none cursor-pointer transition-colors">
                       <option value="Ready">Ready Stock</option>
@@ -1302,22 +1281,22 @@ export default function App() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Kategori Label</label>
-                  <input type="text" value={productForm.category} onChange={e => setProductForm({...productForm, category: e.target.value})} className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 p-3.5 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-bold transition-colors" placeholder="Misal: Fashion" />
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Labél Kategori</label>
+                  <input type="text" value={productForm.category} onChange={e => setProductForm({...productForm, category: e.target.value})} className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 p-3.5 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-bold transition-colors" placeholder="Misal: Pantun/Fashion" />
                 </div>
               </div>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border-2 border-slate-100 grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Harga Modal Pokok</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Pangaos Modal Pokok</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">Rp</span>
                   <input type="number" value={productForm.price_modal} onChange={e => setProductForm({...productForm, price_modal: e.target.value})} className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 p-3.5 pl-9 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-black transition-colors" placeholder="0" />
                 </div>
               </div>
               <div>
-                <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2 block">Harga Jual Akhir</label>
+                <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2 block">Pangaos Ical Ahir</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500 font-black text-sm">Rp</span>
                   <input type="number" value={productForm.price_sell} onChange={e => setProductForm({...productForm, price_sell: e.target.value})} className="w-full bg-blue-50 border-2 border-blue-200 text-blue-800 p-3.5 pl-9 rounded-xl focus:outline-none focus:border-blue-600 focus:bg-white text-sm font-black transition-colors" placeholder="0" />
@@ -1329,7 +1308,7 @@ export default function App() {
 
           <div className="p-5 border-t-2 border-slate-100 bg-white relative z-10">
              <button onClick={handleSaveProduct} className="w-full bg-slate-900 text-white font-black py-4 rounded-xl uppercase tracking-widest text-[11px] active:scale-95 transition-transform flex justify-center items-center gap-2 border-2 border-slate-900 shadow-md">
-                {isEditing ? 'Terapkan Perubahan' : 'Publikasikan ke Etalase'} <Check size={18} strokeWidth={3}/>
+                {isEditing ? 'Terapkeun Parobihan' : 'Publikasikeun ka Etalase'} <Check size={18} strokeWidth={3}/>
              </button>
           </div>
         </div>
@@ -1337,9 +1316,6 @@ export default function App() {
     );
   };
 
-  // ==========================================
-  // RENDER: MODAL TOLAK PESANAN (REJECT)
-  // ==========================================
   const renderRejectModal = () => {
     if (!rejectingOrderId) return null;
     return (
@@ -1348,26 +1324,23 @@ export default function App() {
            <div className="w-14 h-14 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-2 mx-auto border-2 border-red-200">
                <AlertTriangle size={24} strokeWidth={3} />
            </div>
-           <h3 className="font-black text-slate-900 tracking-widest text-center uppercase text-base">Alasan Penolakan</h3>
-           <p className="text-center text-xs text-slate-500 font-bold px-4">Nota akan ditolak dan diberitahukan ke Klien. Mohon sebutkan alasannya.</p>
+           <h3 className="font-black text-slate-900 tracking-widest text-center uppercase text-base">Alesan Panolakan</h3>
+           <p className="text-center text-xs text-slate-500 font-bold px-4">Nota bakal ditolak sareng diwartosan ka Klien. Mugi sebatkeun alesanna.</p>
            <textarea
              className="w-full bg-slate-50 border-2 border-slate-200 text-slate-900 rounded-xl p-4 text-sm font-bold focus:border-red-500 focus:outline-none focus:ring-4 focus:ring-red-500/10 transition-all mt-2 h-24 resize-none"
-             placeholder="Misal: Maaf, kuota PO sudah penuh..."
+             placeholder="Misal: Hapunten, kuota PO parantos pinuh..."
              value={rejectReason}
              onChange={e => setRejectReason(e.target.value)}
            />
            <div className="flex gap-3 mt-4">
              <button onClick={() => {setRejectingOrderId(null); setRejectReason('');}} className="flex-1 py-3.5 bg-white border-2 border-slate-200 text-slate-600 font-black rounded-xl text-[10px] uppercase tracking-widest active:scale-95 transition-transform">BATAL</button>
-             <button onClick={confirmRejectOrder} className="flex-1 py-3.5 bg-red-600 border-2 border-red-700 text-white font-black rounded-xl text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-transform">KIRIM TOLAKAN</button>
+             <button onClick={confirmRejectOrder} className="flex-1 py-3.5 bg-red-600 border-2 border-red-700 text-white font-black rounded-xl text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-transform">KIRIM PANOLAKAN</button>
            </div>
         </div>
       </div>
     );
   };
 
-  // ==========================================
-  // RENDER: MODAL EDIT PESANAN (USER/PEMBELI)
-  // ==========================================
   const renderEditOrderModal = () => {
     if (!editOrderModal) return null;
     return (
@@ -1375,13 +1348,13 @@ export default function App() {
         <div className="bg-white rounded-t-[2rem] sm:rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl p-6 border-2 border-slate-100 flex flex-col gap-4">
            <div className="flex justify-between items-center mb-2">
              <h3 className="font-black text-slate-900 tracking-widest uppercase text-sm flex items-center gap-2">
-               <Edit2 size={18} className="text-blue-600" strokeWidth={3}/> Edit Detail Pesanan
+               <Edit2 size={18} className="text-blue-600" strokeWidth={3}/> Édit Detail Pesenan
              </h3>
              <button onClick={() => setEditOrderModal(null)} className="text-slate-400 hover:text-red-600 transition-colors"><X size={20} strokeWidth={3}/></button>
            </div>
            
            <div>
-             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Nama Lengkap</label>
+             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Nami Lengkep</label>
              <input 
                type="text" value={editOrderModal.customer} 
                onChange={e => setEditOrderModal({...editOrderModal, customer: e.target.value})}
@@ -1389,7 +1362,7 @@ export default function App() {
              />
            </div>
            <div>
-             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Catatan Khusus</label>
+             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Catetan Husus (Opsional)</label>
              <textarea
                value={editOrderModal.notes || ''} 
                onChange={e => setEditOrderModal({...editOrderModal, notes: e.target.value})}
@@ -1398,7 +1371,7 @@ export default function App() {
            </div>
 
            <button onClick={handleSaveEditedMyOrder} className="w-full mt-4 bg-blue-600 border-2 border-blue-700 text-white font-black py-4 rounded-xl text-[11px] uppercase tracking-widest flex justify-center items-center gap-2 active:scale-95 transition-transform shadow-md">
-             <Save size={16} strokeWidth={3}/> Simpan Perubahan
+             <Save size={16} strokeWidth={3}/> Simpen Parobihan
            </button>
         </div>
       </div>
