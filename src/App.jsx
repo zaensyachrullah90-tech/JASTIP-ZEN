@@ -408,7 +408,7 @@ export default function App() {
         <button onClick={() => setView('cart')} className={`flex flex-col items-center p-2 w-1/4 relative active:scale-95 transition-transform ${view === 'cart' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
           <ShoppingCart size={24} strokeWidth={view === 'cart' ? 3 : 2} />
           {cart.length > 0 && (
-            <span className="absolute top-1 right-3 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black border-2 border-white">
+            <span className="absolute -top-1 right-2 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black border-2 border-white">
               {cart.reduce((sum, item) => sum + item.qty, 0)}
             </span>
           )}
@@ -417,7 +417,7 @@ export default function App() {
         <button onClick={() => setView('orders')} className={`flex flex-col items-center p-2 w-1/4 relative active:scale-95 transition-transform ${view === 'orders' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
           <ClipboardList size={24} strokeWidth={view === 'orders' ? 3 : 2} />
           {myOrderIds.length > 0 && (
-            <span className="absolute top-1 right-3 bg-blue-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black border-2 border-white">
+            <span className="absolute -top-1 right-2 bg-blue-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black border-2 border-white">
               {myOrderIds.length}
             </span>
           )}
@@ -432,8 +432,9 @@ export default function App() {
   );
 
   const renderShopView = () => {
+    // Keamanan filtering bisi aya null/undefined ti database
     const filteredProducts = products
-        .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.category.toLowerCase().includes(searchQuery.toLowerCase()))
+        .filter(p => (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (p.category || '').toLowerCase().includes(searchQuery.toLowerCase()))
         .sort((a, b) => (b.sold || 0) - (a.sold || 0)); 
 
     return (
@@ -478,7 +479,7 @@ export default function App() {
                 <img src={product.image || ''} alt={product.name} className="w-full h-full object-cover" />
                 <div className="absolute top-3 left-3 flex gap-2 items-center z-10">
                   <span className="bg-white border-2 border-slate-200 px-2.5 py-1 rounded-xl text-[9px] text-slate-800 tracking-widest uppercase font-black">
-                    {product.category}
+                    {product.category || 'Umum'}
                   </span>
                   <span className={`px-2.5 py-1 rounded-xl text-[9px] font-black tracking-widest uppercase border-2 ${product.status === 'PO' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'}`}>
                     {product.status === 'PO' ? 'PRE-ORDER' : 'READY STOCK'}
@@ -488,7 +489,7 @@ export default function App() {
               <div className="p-5 bg-white">
                 <h3 className="font-black text-slate-900 text-lg leading-tight mb-1">{product.name}</h3>
                 {product.sold > 0 && <p className="text-[10px] text-slate-500 tracking-widest uppercase mb-2 font-bold">Kajual {product.sold} Unit</p>}
-                <p className="text-blue-600 font-black tracking-tight text-xl mb-4 mt-2">Rp {Number(product.price_sell).toLocaleString('id-ID')}</p>
+                <p className="text-blue-600 font-black tracking-tight text-xl mb-4 mt-2">Rp {Number(product.price_sell || 0).toLocaleString('id-ID')}</p>
                 <button 
                   onClick={() => addToCart(product)}
                   className="w-full bg-blue-600 text-white border-2 border-blue-700 py-3.5 rounded-xl text-[11px] font-black tracking-widest uppercase active:scale-95 transition-transform flex items-center justify-center gap-2"
@@ -505,7 +506,7 @@ export default function App() {
 
   const renderCartView = () => {
     const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
-    const subtotalSell = cart.reduce((sum, item) => sum + (Number(item.price_sell) * item.qty), 0);
+    const subtotalSell = cart.reduce((sum, item) => sum + ((Number(item.price_sell) || 0) * item.qty), 0);
     const feeJastip = subtotalSell * Number(settings.fee_percent);
     
     const isFreeOngkir = totalItems >= Number(settings.min_free_ongkir);
@@ -521,7 +522,7 @@ export default function App() {
         customer: buyerName,
         notes: buyerNotes, 
         items: cart, 
-        total_modal: cart.reduce((sum, item) => sum + (Number(item.price_modal) * item.qty), 0),
+        total_modal: cart.reduce((sum, item) => sum + ((Number(item.price_modal) || 0) * item.qty), 0),
         total_sell: subtotalSell,
         fee: feeJastip,
         ongkir: ongkir,
@@ -546,7 +547,7 @@ export default function App() {
       if (buyerNotes) message += `Catetan: _${buyerNotes}_\n`;
       message += `\n*RINCIAN PESENAN:*\n`;
       
-      cart.forEach(item => { message += `🔸 ${item.name} (${item.status}) x${item.qty}\n      Rp ${(Number(item.price_sell) * item.qty).toLocaleString('id-ID')}\n`; });
+      cart.forEach(item => { message += `🔸 ${item.name} (${item.status}) x${item.qty}\n      Rp ${((Number(item.price_sell) || 0) * item.qty).toLocaleString('id-ID')}\n`; });
       message += `\n----------------------\nSubtotal : Rp ${subtotalSell.toLocaleString('id-ID')}\nFee Jasa : Rp ${feeJastip.toLocaleString('id-ID')}\nOngkos Kirim   : ${isFreeOngkir ? '*GRATIS!*' : 'Rp ' + ongkir.toLocaleString('id-ID')}\n======================\n*TOTAL TAGIHAN  : Rp ${total.toLocaleString('id-ID')}*\n======================\n_Ngantosan konfirmasi admin..._`;
       
       let cleanWa = settings.admin_wa ? settings.admin_wa.replace(/\D/g, '') : '';
@@ -597,7 +598,7 @@ export default function App() {
                   <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded-xl bg-slate-100" />
                   <div className="flex-1">
                     <h4 className="font-black text-slate-900 text-sm leading-tight line-clamp-1">{item.name}</h4>
-                    <p className="text-blue-600 font-black text-sm mt-1">Rp {Number(item.price_sell).toLocaleString('id-ID')}</p>
+                    <p className="text-blue-600 font-black text-sm mt-1">Rp {(Number(item.price_sell) || 0).toLocaleString('id-ID')}</p>
                     <div className="flex gap-2 items-center mt-2">
                        <div className="flex items-center bg-slate-50 border-2 border-slate-200 rounded-lg overflow-hidden">
                          <button onClick={() => updateCartQty(item.id, -1)} className="px-2 py-1 text-slate-500 hover:bg-slate-200 font-black"><Minus size={12} strokeWidth={3}/></button>
@@ -660,7 +661,7 @@ export default function App() {
                  <p className="text-[10px] text-center text-slate-600 font-bold uppercase tracking-widest mb-3">Scan Kode QRIS</p>
                  <img src={settings.qris_image} alt="QRIS" className="w-full aspect-square object-contain rounded-xl border-2 border-slate-200 bg-white" />
                  <button onClick={downloadQRIS} className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold text-[10px] tracking-widest uppercase flex items-center gap-2 active:scale-95 transition-transform w-max border-2 border-blue-700">
-                   <Download size={14} strokeWidth={3}/> Simpen QRIS
+                   <Download size={14} strokeWidth={3}/> Simpan QRIS
                  </button>
               </div>
             ) : (
@@ -677,7 +678,7 @@ export default function App() {
                {cart.map(c => (
                  <div key={c.id} className="flex justify-between text-xs text-slate-700 font-bold">
                    <span className="truncate pr-2">{c.qty}x {c.name}</span>
-                   <span className="text-slate-900 font-black">Rp{(Number(c.price_sell)*c.qty).toLocaleString('id-ID')}</span>
+                   <span className="text-slate-900 font-black">Rp{((Number(c.price_sell) || 0)*c.qty).toLocaleString('id-ID')}</span>
                  </div>
                ))}
                <div className="pt-3 border-t-2 border-dashed border-slate-200 mt-3">
@@ -724,7 +725,7 @@ export default function App() {
                 <div>
                   <p className="font-black text-slate-900 text-sm mb-1">{order.customer}</p>
                   <p className="text-[9px] text-slate-400 font-bold tracking-widest">{order.id}</p>
-                  <p className="text-blue-600 font-black text-sm mt-1 tracking-wide">Rp {Number(order.grand_total).toLocaleString('id-ID')}</p>
+                  <p className="text-blue-600 font-black text-sm mt-1 tracking-wide">Rp {Number(order.grand_total || 0).toLocaleString('id-ID')}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span className={`text-[9px] uppercase tracking-widest font-black px-3 py-1.5 rounded-xl border-2 ${
@@ -733,7 +734,7 @@ export default function App() {
                      order.status === 'Diproses' ? 'bg-blue-100 text-blue-600 border-blue-200' :
                      'bg-orange-100 text-orange-600 border-orange-200'
                   }`}>
-                    {order.status}
+                    {order.status || 'Pending'}
                   </span>
                 </div>
               </div>
@@ -805,9 +806,9 @@ export default function App() {
     let revenue = 0, capital = 0, totalFee = 0;
     orders.forEach(order => {
       if (order.status === 'Selesai') {
-         revenue += Number(order.total_sell);
-         capital += Number(order.total_modal);
-         totalFee += Number(order.fee);
+         revenue += Number(order.total_sell || 0);
+         capital += Number(order.total_modal || 0);
+         totalFee += Number(order.fee || 0);
       }
     });
     const stats = { capital, revenue, profit: (revenue - capital) + totalFee, orders: orders.filter(o=>o.status === 'Selesai').length };
@@ -815,9 +816,10 @@ export default function App() {
     const top10Products = [...products].sort((a,b) => (b.sold || 0) - (a.sold || 0)).filter(p => p.sold > 0).slice(0, 10);
     const unsoldProducts = products.filter(p => !p.sold || p.sold === 0);
 
+    // Keamanan pamilarian di admin
     const filteredAdminOrders = orders.filter(order => {
-       const matchName = order.customer.toLowerCase().includes(adminOrderSearch.toLowerCase());
-       const matchItems = order.items && order.items.some(item => item.name.toLowerCase().includes(adminOrderSearch.toLowerCase()));
+       const matchName = (order.customer || '').toLowerCase().includes(adminOrderSearch.toLowerCase());
+       const matchItems = order.items && order.items.some(item => (item.name || '').toLowerCase().includes(adminOrderSearch.toLowerCase()));
        return matchName || matchItems;
     });
 
@@ -867,7 +869,7 @@ export default function App() {
                           order.status === 'Diproses' ? 'bg-blue-100 text-blue-600 border-blue-200' :
                           'bg-orange-100 text-orange-600 border-orange-200'
                        }`}>
-                         {order.status}
+                         {order.status || 'Pending'}
                        </span>
                      </div>
                      
@@ -887,12 +889,12 @@ export default function App() {
                      )}
 
                      <div className="bg-slate-50 p-3 rounded-xl border-2 border-slate-100">
-                       <div className="flex justify-between text-[10px] text-slate-500 font-bold"><span>Subtotal</span><span>Rp {order.total_sell.toLocaleString('id-ID')}</span></div>
-                       <div className="flex justify-between text-[10px] text-slate-500 font-bold"><span>Fee Jasa</span><span>Rp {order.fee.toLocaleString('id-ID')}</span></div>
-                       <div className="flex justify-between text-[10px] text-slate-500 font-bold"><span>Ongkos Kirim</span><span>Rp {order.ongkir.toLocaleString('id-ID')}</span></div>
+                       <div className="flex justify-between text-[10px] text-slate-500 font-bold"><span>Subtotal</span><span>Rp {(Number(order.total_sell)||0).toLocaleString('id-ID')}</span></div>
+                       <div className="flex justify-between text-[10px] text-slate-500 font-bold"><span>Fee Jasa</span><span>Rp {(Number(order.fee)||0).toLocaleString('id-ID')}</span></div>
+                       <div className="flex justify-between text-[10px] text-slate-500 font-bold"><span>Ongkos Kirim</span><span>Rp {(Number(order.ongkir)||0).toLocaleString('id-ID')}</span></div>
                        <div className="flex justify-between items-center mt-2 pt-2 border-t-2 border-slate-200">
                          <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Total Tagihan</span>
-                         <span className="text-sm font-black text-blue-600">Rp {Number(order.grand_total).toLocaleString('id-ID')}</span>
+                         <span className="text-sm font-black text-blue-600">Rp {Number(order.grand_total || 0).toLocaleString('id-ID')}</span>
                        </div>
                      </div>
 
@@ -957,7 +959,7 @@ export default function App() {
                    <div key={p.id} className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                          <span className="font-black text-slate-300 text-lg w-4">{i+1}</span>
-                         <img src={p.image} className="w-10 h-10 rounded-lg object-cover border-2 border-slate-100 bg-slate-50"/>
+                         <img src={p.image || ''} className="w-10 h-10 rounded-lg object-cover border-2 border-slate-100 bg-slate-50"/>
                          <p className="text-xs font-black text-slate-800 line-clamp-1">{p.name}</p>
                       </div>
                       <span className="bg-orange-100 text-orange-600 font-black text-[10px] px-2 py-1 rounded-md">{p.sold} x</span>
@@ -987,6 +989,7 @@ export default function App() {
           </div>
         )}
 
+        {/* TAB PRODUCTS */}
         {adminTab === 'products' && (
           <div className="animate-in slide-in-from-right-4">
              <button onClick={openAddProduct} className="w-full bg-blue-600 text-white font-black py-4 rounded-xl mb-4 text-xs uppercase tracking-widest flex justify-center items-center gap-2 active:scale-95 transition-transform border-2 border-blue-700 shadow-md">
@@ -1006,11 +1009,11 @@ export default function App() {
               {products.length === 0 && <div className="text-center bg-white border-2 border-slate-200 rounded-2xl py-10 shadow-sm"><p className="text-xs font-bold text-slate-400">Etalase kosong.</p></div>}
               {products.map(product => {
                 const terjual = product.sold || 0;
-                const labaPerItem = Number(product.price_sell) - Number(product.price_modal);
+                const labaPerItem = Number(product.price_sell || 0) - Number(product.price_modal || 0);
                 return (
                   <div key={product.id} className="bg-white border-2 border-slate-200 p-4 rounded-2xl flex flex-col gap-4 relative pr-4 shadow-sm">
                     <div className="flex gap-3 pr-16">
-                      <img src={product.image || 'https://via.placeholder.com/150'} alt={product.name} className="w-16 h-16 object-cover rounded-xl bg-slate-100 border-2 border-slate-100" />
+                      <img src={product.image || ''} alt={product.name} className="w-16 h-16 object-cover rounded-xl bg-slate-100 border-2 border-slate-100" />
                       <div className="flex-1 pt-1">
                         <h4 className="font-black text-slate-900 text-sm mb-1.5 line-clamp-1">{product.name}</h4>
                         <div className="flex gap-2 items-center mb-1">
@@ -1040,6 +1043,7 @@ export default function App() {
           </div>
         )}
 
+        {/* TAB SYSTEM */}
         {adminTab === 'system' && (
           <div className="space-y-6 animate-in slide-in-from-right-4">
              <div className="bg-white border-2 border-slate-200 p-5 rounded-2xl shadow-sm">
