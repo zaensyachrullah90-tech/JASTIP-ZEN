@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ShoppingCart, Settings, Plus, Minus, Image as ImageIcon, Package, Check, Trash2, ArrowRight, Diamond, Database, RefreshCw, AlertTriangle, X, Sparkles, Save, Percent, Search, Receipt, Lock, Camera, Wand2, Cloud, Table, Download, Phone, Edit2, TrendingUp, Frown, Award, ChevronRight, ClipboardList, Scale, MessageSquare } from 'lucide-react';
 
 // --- FUNGSI KEAMANAN ENKRIPSI SANDI (SHA-256) ---
@@ -178,18 +178,30 @@ export default function App() {
     }
   }, [apiUrl, syncDataFromGAS]);
 
+  // Perbaikan Mendasar: Mencegah Form Input kereset otomatis saat polling
   useEffect(() => {
     setTempApiUrl(apiUrl);
     setTempSheetUrl(settings.sheet_url || '');
     setTempDriveUrl(settings.drive_url || '');
-    setTempFeePct(settings.fee_percent * 100);
-    setTempFeeKg(settings.fee_per_kg || 15000);
-    setTempFeeLiter(settings.fee_per_liter || 10000);
-    setTempOngkir(settings.ongkir_flat);
-    setTempMinFree(settings.min_free_ongkir);
+    setTempFeePct((settings.fee_percent || 0) * 100);
+    setTempFeeKg(settings.fee_per_kg !== undefined ? settings.fee_per_kg : 15000);
+    setTempFeeLiter(settings.fee_per_liter !== undefined ? settings.fee_per_liter : 10000);
+    setTempOngkir(settings.ongkir_flat !== undefined ? settings.ongkir_flat : 5000);
+    setTempMinFree(settings.min_free_ongkir !== undefined ? settings.min_free_ongkir : 3);
     setTempAdminWa(settings.admin_wa || '');
     setTempQrisImage(settings.qris_image || '');
-  }, [settings, apiUrl]);
+  }, [
+    apiUrl,
+    settings.sheet_url,
+    settings.drive_url,
+    settings.fee_percent,
+    settings.fee_per_kg,
+    settings.fee_per_liter,
+    settings.ongkir_flat,
+    settings.min_free_ongkir,
+    settings.admin_wa,
+    settings.qris_image
+  ]);
 
   // AUTOSAVE LOKAL 
   useEffect(() => { localStorage.setItem('jastip_current_view', view); }, [view]);
@@ -288,7 +300,7 @@ export default function App() {
         status: productForm.status || 'Ready',
         unit: productForm.unit || 'Pcs',
         variants: productForm.variants || '',
-        image: productForm.image || '[Image of Box]' 
+        image: productForm.image || '' 
       };
       setProducts([newProd, ...products]);
       pushToDB('addProduct', { payload: newProd });
@@ -557,8 +569,12 @@ export default function App() {
                   <Sparkles size={12} strokeWidth={3}/> LAKU KERAS
                 </div>
               )}
-              <div className="relative bg-slate-100 h-56 flex justify-center items-center">
-                <img src={product.image || ''} alt={product.name} className="w-full h-full object-cover" />
+              <div className="relative bg-slate-100 h-56 flex justify-center items-center overflow-hidden">
+                {product.image ? (
+                  <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                ) : (
+                  <ImageIcon size={48} className="text-slate-300" strokeWidth={1.5} />
+                )}
                 <div className="absolute top-3 left-3 flex gap-2 items-center z-10">
                   <span className="bg-white border-2 border-slate-200 px-2.5 py-1 rounded-xl text-[9px] text-slate-800 tracking-widest uppercase font-black">
                     {product.category || 'Umum'}
@@ -607,7 +623,13 @@ export default function App() {
            
            <div className="p-5 overflow-y-auto flex-1 custom-scrollbar space-y-5">
              <div className="flex gap-4">
-                <img src={addToCartData.image || ''} className="w-20 h-20 object-cover rounded-2xl bg-slate-100 border-2 border-slate-100" />
+                {addToCartData.image ? (
+                  <img src={addToCartData.image} className="w-20 h-20 object-cover rounded-2xl bg-slate-100 border-2 border-slate-100" />
+                ) : (
+                  <div className="w-20 h-20 bg-slate-100 rounded-2xl border-2 border-slate-200 flex items-center justify-center">
+                    <ImageIcon size={24} className="text-slate-300" />
+                  </div>
+                )}
                 <div>
                   <h4 className="font-black text-slate-900 text-base leading-tight mb-1">{addToCartData.name}</h4>
                   <p className="text-blue-600 font-black text-sm">Rp {Number(addToCartData.price_sell || 0).toLocaleString('id-ID')} <span className="text-[10px] text-slate-400">/ {addToCartData.unit || 'Pcs'}</span></p>
@@ -752,7 +774,13 @@ export default function App() {
             <div className="space-y-4 mb-8">
               {cart.map(item => (
                 <div key={item.id} className="bg-white border-2 border-slate-100 p-4 rounded-2xl flex gap-4 items-center relative pr-4 shadow-sm">
-                  <img src={item.image || ''} alt={item.name} className="w-16 h-16 object-cover rounded-xl bg-slate-100" />
+                  {item.image ? (
+                    <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded-xl bg-slate-100" />
+                  ) : (
+                    <div className="w-16 h-16 bg-slate-100 rounded-xl border-2 border-slate-200 flex items-center justify-center">
+                      <ImageIcon size={20} className="text-slate-300" />
+                    </div>
+                  )}
                   <div className="flex-1">
                     <h4 className="font-black text-slate-900 text-sm leading-tight line-clamp-1">{item.name}</h4>
                     
@@ -1198,7 +1226,7 @@ export default function App() {
                       <div className="flex-1 pt-1">
                         <h4 className="font-black text-slate-900 text-sm mb-1.5 line-clamp-1">{product.name}</h4>
                         <div className="flex gap-2 items-center mb-1">
-                           <span className="text-[9px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-bold tracking-widest uppercase border border-slate-200">Stok: {product.stock} | Jual: {terjual} {product.unit || 'Pcs'}</span>
+                           <span className="text-[9px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-bold tracking-widest uppercase border border-slate-200">S: {product.stock} | T: {terjual} {product.unit || 'Pcs'}</span>
                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-widest border-2 ${product.status === 'PO' ? 'bg-orange-100 text-orange-600 border-orange-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>{product.status}</span>
                         </div>
                       </div>
